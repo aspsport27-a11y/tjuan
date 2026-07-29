@@ -13,6 +13,7 @@ const navItems = [
   { to: '/expenses', label: 'Pengeluaran', permission: 'expense.manage' },
   { to: '/daily-report', label: 'Laporan Harian', permission: 'report.view_business' },
   { to: '/product-report', label: 'Produk & Margin', permission: 'report.view_business' },
+  { to: '/financial-report', label: 'Laporan Keuangan', permission: 'report.view_management' },
   { to: '/users', label: 'Pengguna', permission: 'user.manage' },
   { to: '/outlets', label: 'Outlet', permission: 'outlet.manage' },
 ];

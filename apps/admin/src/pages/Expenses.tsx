@@ -9,44 +9,61 @@ interface Expense {
   category: string;
   amount: string;
   notes: string | null;
+  source: 'cash_drawer' | 'outlet';
+  expense_date: string;
   recorded_at: string;
   recorded_by_name: string | null;
 }
 
 const CATEGORY_LABELS: Record<string, string> = {
   bahan_baku: 'Bahan Baku',
-  operasional: 'Operasional',
   gaji: 'Gaji',
+  sewa: 'Sewa',
+  utilitas: 'Utilitas (listrik/air)',
+  operasional: 'Operasional',
   transport: 'Transport',
   lainnya: 'Lainnya',
 };
 
+// Till expenses are what a cashier pays out of the drawer mid-shift; outlet
+// charges are fixed costs paid elsewhere. Offering every category on both
+// tabs would just invite miscategorised entries.
+const TILL_CATEGORIES = ['bahan_baku', 'operasional', 'transport', 'lainnya'];
+const OUTLET_CATEGORIES = ['gaji', 'sewa', 'utilitas', 'operasional', 'transport', 'lainnya'];
+
 function todayStr() {
   return new Date().toISOString().slice(0, 10);
 }
-
+function firstOfMonth() {
+  const d = new Date();
+  return new Date(d.getFullYear(), d.getMonth(), 1).toISOString().slice(0, 10);
+}
 function formatRupiah(amount: number): string {
   return new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }).format(amount);
 }
 
 export default function Expenses() {
+  const [tab, setTab] = useState<'cash_drawer' | 'outlet'>('cash_drawer');
   const [expenses, setExpenses] = useState<Expense[]>([]);
-  const [from, setFrom] = useState(todayStr());
+  const [from, setFrom] = useState(firstOfMonth());
   const [to, setTo] = useState(todayStr());
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const activeOutletId = useOutletStore((s) => s.activeOutletId);
 
   const [category, setCategory] = useState('operasional');
   const [amount, setAmount] = useState(0);
   const [notes, setNotes] = useState('');
+  const [expenseDate, setExpenseDate] = useState(todayStr());
   const [creating, setCreating] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
-  const activeOutletId = useOutletStore((s) => s.activeOutletId);
+
+  const categories = tab === 'cash_drawer' ? TILL_CATEGORIES : OUTLET_CATEGORIES;
 
   async function load() {
     setLoading(true);
     try {
-      const res = await api.get<{ expenses: Expense[] }>(`/expenses?from=${from}&to=${to}`);
+      const res = await api.get<{ expenses: Expense[] }>(`/expenses?from=${from}&to=${to}&source=${tab}`);
       setExpenses(res.expenses);
     } catch (err) {
       if (err instanceof ApiError) setError(err.message);
@@ -58,7 +75,12 @@ export default function Expenses() {
   useEffect(() => {
     load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [from, to, activeOutletId]);
+  }, [from, to, activeOutletId, tab]);
+
+  useEffect(() => {
+    if (!categories.includes(category)) setCategory(categories[0]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tab]);
 
   async function handleCreate(e: React.FormEvent) {
     e.preventDefault();
@@ -69,7 +91,13 @@ export default function Expenses() {
     }
     setCreating(true);
     try {
-      await api.post('/expenses', { category, amount, notes: notes.trim() || undefined });
+      await api.post('/expenses', {
+        category,
+        amount,
+        notes: notes.trim() || undefined,
+        source: tab,
+        expenseDate: tab === 'outlet' ? expenseDate : undefined,
+      });
       setAmount(0);
       setNotes('');
       await load();
@@ -83,6 +111,17 @@ export default function Expenses() {
     }
   }
 
+  async function remove(id: string) {
+    if (!window.confirm('Hapus pengeluaran ini?')) return;
+    setError(null);
+    try {
+      await api.delete(`/expenses/${id}`);
+      await load();
+    } catch (err) {
+      if (err instanceof ApiError) setError(err.message);
+    }
+  }
+
   const total = expenses.reduce((sum, e) => sum + Number(e.amount), 0);
 
   return (
@@ -92,26 +131,55 @@ export default function Expenses() {
         <OutletSelector />
       </div>
 
+      <div className="mb-4 flex flex-wrap gap-2">
+        <button
+          onClick={() => setTab('cash_drawer')}
+          className={`rounded-lg px-4 py-2 text-sm font-medium ${tab === 'cash_drawer' ? 'bg-sky-500 text-white' : 'border border-slate-200 bg-white text-slate-600'}`}
+        >
+          Kas Kasir
+        </button>
+        <button
+          onClick={() => setTab('outlet')}
+          className={`rounded-lg px-4 py-2 text-sm font-medium ${tab === 'outlet' ? 'bg-sky-500 text-white' : 'border border-slate-200 bg-white text-slate-600'}`}
+        >
+          Beban Outlet
+        </button>
+      </div>
+
+      <p className="mb-4 rounded-lg bg-sky-50 px-3 py-2 text-sm text-sky-700">
+        {tab === 'cash_drawer'
+          ? 'Uang yang keluar dari laci kasir saat shift berjalan. Wajib ada shift terbuka, dan ikut mengurangi kas yang dihitung saat tutup shift.'
+          : 'Beban outlet yang dibayar di luar laci kasir (gaji, sewa, listrik). Bisa dicatat kapan saja, tidak memengaruhi hitungan kas kasir.'}
+      </p>
+
       {error && <div className="mb-4 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600">{error}</div>}
 
       <form onSubmit={handleCreate} className="mb-6 rounded-xl border border-slate-200 bg-white p-4">
-        <h2 className="mb-3 text-sm font-semibold text-slate-700">Catat Pengeluaran</h2>
+        <h2 className="mb-3 text-sm font-semibold text-slate-700">
+          {tab === 'cash_drawer' ? 'Catat Pengeluaran Kas' : 'Catat Beban Outlet'}
+        </h2>
         {formError && <div className="mb-3 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600">{formError}</div>}
 
         <div className="mb-3 flex flex-wrap gap-2">
           <div>
             <label className="mb-1 block text-xs text-slate-500">Kategori</label>
-            <select value={category} onChange={(e) => setCategory(e.target.value)} className="w-40 rounded-lg border border-slate-300 px-3 py-2 outline-none focus:border-sky-500">
-              {Object.entries(CATEGORY_LABELS).map(([k, v]) => (
-                <option key={k} value={k}>{v}</option>
+            <select value={category} onChange={(e) => setCategory(e.target.value)} className="w-44 rounded-lg border border-slate-300 px-3 py-2 outline-none focus:border-sky-500">
+              {categories.map((k) => (
+                <option key={k} value={k}>{CATEGORY_LABELS[k]}</option>
               ))}
             </select>
           </div>
           <div>
             <label className="mb-1 block text-xs text-slate-500">Jumlah</label>
-            <input type="number" value={amount} onChange={(e) => setAmount(Number(e.target.value))} className="w-40 rounded-lg border border-slate-300 px-3 py-2 outline-none focus:border-sky-500" />
+            <input type="number" value={amount} onChange={(e) => setAmount(Number(e.target.value))} className="w-36 rounded-lg border border-slate-300 px-3 py-2 outline-none focus:border-sky-500" />
           </div>
-          <div className="flex-1">
+          {tab === 'outlet' && (
+            <div>
+              <label className="mb-1 block text-xs text-slate-500">Tanggal beban</label>
+              <input type="date" value={expenseDate} onChange={(e) => setExpenseDate(e.target.value)} className="rounded-lg border border-slate-300 px-3 py-2 outline-none focus:border-sky-500" />
+            </div>
+          )}
+          <div className="min-w-[12rem] flex-1">
             <label className="mb-1 block text-xs text-slate-500">Catatan</label>
             <input value={notes} onChange={(e) => setNotes(e.target.value)} className="w-full rounded-lg border border-slate-300 px-3 py-2 outline-none focus:border-sky-500" />
           </div>
@@ -122,7 +190,7 @@ export default function Expenses() {
         </button>
       </form>
 
-      <div className="mb-4 flex items-end gap-2">
+      <div className="mb-4 flex flex-wrap items-end gap-2">
         <div>
           <label className="mb-1 block text-xs text-slate-500">Dari</label>
           <input type="date" value={from} onChange={(e) => setFrom(e.target.value)} className="rounded-lg border border-slate-300 px-3 py-2 outline-none focus:border-sky-500" />
@@ -149,21 +217,25 @@ export default function Expenses() {
                 <th className="px-4 py-3">Jumlah</th>
                 <th className="px-4 py-3">Catatan</th>
                 <th className="px-4 py-3">Dicatat oleh</th>
+                <th className="px-4 py-3"></th>
               </tr>
             </thead>
             <tbody>
               {expenses.map((e) => (
                 <tr key={e.id} className="border-t border-slate-100">
-                  <td className="px-4 py-3 text-slate-600">{new Date(e.recorded_at).toLocaleString('id-ID')}</td>
+                  <td className="px-4 py-3 text-slate-600">{new Date(e.expense_date).toLocaleDateString('id-ID')}</td>
                   <td className="px-4 py-3">{CATEGORY_LABELS[e.category] ?? e.category}</td>
                   <td className="px-4 py-3 font-medium text-slate-900">{formatRupiah(Number(e.amount))}</td>
                   <td className="px-4 py-3 text-slate-600">{e.notes ?? '-'}</td>
                   <td className="px-4 py-3 text-slate-600">{e.recorded_by_name ?? '-'}</td>
+                  <td className="px-4 py-3 text-right">
+                    <button onClick={() => remove(e.id)} className="text-xs text-red-500 hover:text-red-700">Hapus</button>
+                  </td>
                 </tr>
               ))}
               {expenses.length === 0 && (
                 <tr>
-                  <td colSpan={5} className="px-4 py-6 text-center text-slate-400">Tidak ada pengeluaran di periode ini</td>
+                  <td colSpan={6} className="px-4 py-6 text-center text-slate-400">Tidak ada data di periode ini</td>
                 </tr>
               )}
             </tbody>

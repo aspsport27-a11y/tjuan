@@ -2,6 +2,7 @@ import type { FastifyInstance } from 'fastify';
 import { pool } from '../../db/pool.js';
 import { requirePermission } from '../rbac/require-permission.js';
 import { resolveOutletId } from '../../utils/outlet-scope.js';
+import { buildOutletPnl } from './financial.service.js';
 
 export default async function reportsRoutes(fastify: FastifyInstance) {
   fastify.addHook('preHandler', fastify.authenticate);
@@ -30,10 +31,12 @@ export default async function reportsRoutes(fastify: FastifyInstance) {
       [outletId, from, to],
     );
 
+    // expense_date, not recorded_at: an expense belongs to the day it
+    // economically occurred, not the day someone got around to typing it in.
     const expenseRes = await pool.query(
       `SELECT COALESCE(SUM(amount), 0) AS total
        FROM outlet_expenses
-       WHERE outlet_id = $1 AND recorded_at >= $2::date AND recorded_at < $3::date + interval '1 day'`,
+       WHERE outlet_id = $1 AND expense_date >= $2::date AND expense_date <= $3::date`,
       [outletId, from, to],
     );
 
@@ -123,6 +126,57 @@ export default async function reportsRoutes(fastify: FastifyInstance) {
       totalRevenue,
       ...(canSeeCost ? { totalCost, totalMargin: totalRevenue - totalCost } : {}),
       products,
+    });
+  });
+
+  // Full P&L for one outlet. Cost/margin is management-level data, so this
+  // endpoint requires report.view_management rather than view_business.
+  fastify.get('/reports/financial', { preHandler: requirePermission('report.view_management') }, async (request, reply) => {
+    const outletId = resolveOutletId(request, reply);
+    if (!outletId) return;
+    const query = request.query as { from?: string; to?: string };
+    const today = new Date().toISOString().slice(0, 10);
+    const from = query.from ?? today;
+    const to = query.to ?? from;
+
+    const outletRes = await pool.query(`SELECT id, name FROM outlets WHERE id = $1`, [outletId]);
+    if (outletRes.rows.length === 0) return reply.code(404).send({ error: 'not_found' });
+
+    const pnl = await buildOutletPnl(outletId, outletRes.rows[0].name, from, to);
+    return reply.send({ from, to, ...pnl });
+  });
+
+  // Side-by-side P&L across every outlet the caller can see -- the owner view
+  // that answers "which outlet actually makes money".
+  fastify.get('/reports/financial/consolidated', { preHandler: requirePermission('report.view_management') }, async (request, reply) => {
+    const query = request.query as { from?: string; to?: string };
+    const today = new Date().toISOString().slice(0, 10);
+    const from = query.from ?? today;
+    const to = query.to ?? from;
+
+    const outletsRes = await pool.query(
+      `SELECT id, name FROM outlets WHERE id = ANY($1::uuid[]) ORDER BY name`,
+      [request.user.outletIds],
+    );
+
+    const outlets = await Promise.all(
+      outletsRes.rows.map((o) => buildOutletPnl(o.id, o.name, from, to)),
+    );
+
+    const sum = (pick: (o: (typeof outlets)[number]) => number) => outlets.reduce((s, o) => s + pick(o), 0);
+
+    return reply.send({
+      from,
+      to,
+      outlets,
+      total: {
+        revenue: sum((o) => o.revenue),
+        cogsRecipe: sum((o) => o.cogsRecipe),
+        directMaterial: sum((o) => o.directMaterial),
+        grossProfit: sum((o) => o.grossProfit),
+        opex: sum((o) => o.opex),
+        netProfit: sum((o) => o.netProfit),
+      },
     });
   });
 }

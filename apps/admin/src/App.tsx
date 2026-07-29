@@ -10,6 +10,7 @@ import Procurement from './pages/Procurement';
 import Shifts from './pages/Shifts';
 import DailyReport from './pages/DailyReport';
 import ProductReport from './pages/ProductReport';
+import FinancialReport from './pages/FinancialReport';
 import ChangePassword from './pages/ChangePassword';
 import RequireAuth from './components/RequireAuth';
 
@@ -94,6 +95,14 @@ export default function App() {
         element={
           <RequireAuth>
             <ProductReport />
+          </RequireAuth>
+        }
+      />
+      <Route
+        path="/financial-report"
+        element={
+          <RequireAuth>
+            <FinancialReport />
           </RequireAuth>
         }
       />

@@ -24,8 +24,11 @@ export async function computeExpectedCash(db: Pool | PoolClient, shiftId: string
     `SELECT COALESCE(SUM(amount), 0) AS total FROM payments WHERE shift_id = $1 AND method = 'cash'`,
     [shiftId],
   );
+  // Only till expenses come out of the drawer -- outlet-level charges (gaji,
+  // sewa) are paid elsewhere and must never move expected cash. They already
+  // carry a NULL shift_id, but be explicit so intent survives future edits.
   const { rows: expenseRows } = await db.query(
-    `SELECT COALESCE(SUM(amount), 0) AS total FROM outlet_expenses WHERE shift_id = $1`,
+    `SELECT COALESCE(SUM(amount), 0) AS total FROM outlet_expenses WHERE shift_id = $1 AND source = 'cash_drawer'`,
     [shiftId],
   );
   return Number(openingCash) + Number(cashRows[0].total) - Number(expenseRows[0].total);
