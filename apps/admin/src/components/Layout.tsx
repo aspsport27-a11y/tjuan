@@ -34,13 +34,21 @@ export default function Layout({ children }: { children: ReactNode }) {
               </NavLink>
             ))}
         </nav>
-        <div className="p-3">
+        <div className="space-y-1 p-3">
+          <NavLink
+            to="/change-password"
+            className={({ isActive }) =>
+              `block rounded-lg px-3 py-2 text-sm font-medium ${isActive ? 'bg-sky-500 text-white' : 'text-slate-300 hover:bg-slate-800'}`
+            }
+          >
+            Ganti Password
+          </NavLink>
           <button
             onClick={() => {
               clearSession();
               navigate('/login');
             }}
-            className="w-full rounded-lg bg-slate-800 px-3 py-2 text-sm text-slate-300 hover:bg-slate-700"
+            className="w-full rounded-lg bg-slate-800 px-3 py-2 text-left text-sm text-slate-300 hover:bg-slate-700"
           >
             Keluar
           </button>

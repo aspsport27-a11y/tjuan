@@ -61,3 +61,12 @@ export async function findUserForLogin(username: string): Promise<LoadedUser | n
 export async function touchLastLogin(userId: string): Promise<void> {
   await pool.query(`UPDATE users SET last_login_at = now() WHERE id = $1`, [userId]);
 }
+
+export async function getPasswordHash(userId: string): Promise<string | null> {
+  const { rows } = await pool.query(`SELECT password_hash FROM users WHERE id = $1`, [userId]);
+  return rows[0]?.password_hash ?? null;
+}
+
+export async function updatePasswordHash(userId: string, passwordHash: string): Promise<void> {
+  await pool.query(`UPDATE users SET password_hash = $2 WHERE id = $1`, [userId, passwordHash]);
+}

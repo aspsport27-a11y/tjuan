@@ -4,7 +4,7 @@ import { env } from './config/env.js';
 async function main() {
   const app = await buildApp();
   try {
-    await app.listen({ port: env.PORT, host: '0.0.0.0' });
+    await app.listen({ port: env.PORT, host: env.HOST });
     app.log.info(`F&B POS API listening on port ${env.PORT}`);
   } catch (err) {
     app.log.error(err);

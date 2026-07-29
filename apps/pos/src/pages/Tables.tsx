@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { api, ApiError } from '../api/client';
 import { useAuthStore } from '../store/auth';
 import type { TableDto, TableSessionDto } from '../api/types';
+import ChangePasswordModal from '../components/ChangePasswordModal';
 
 const statusStyles: Record<TableDto['status'], string> = {
   available: 'bg-emerald-500/15 border-emerald-500 text-emerald-400',
@@ -21,6 +22,7 @@ export default function Tables() {
   const [loading, setLoading] = useState(true);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [showChangePassword, setShowChangePassword] = useState(false);
   const navigate = useNavigate();
   const { user, clearSession } = useAuthStore();
 
@@ -73,16 +75,26 @@ export default function Tables() {
           <h1 className="text-xl font-bold text-white">Meja</h1>
           <p className="text-sm text-slate-400">{user?.fullName}</p>
         </div>
-        <button
-          onClick={() => {
-            clearSession();
-            navigate('/login');
-          }}
-          className="rounded-lg bg-slate-800 px-4 py-2 text-sm text-slate-300 hover:bg-slate-700"
-        >
-          Keluar
-        </button>
+        <div className="flex gap-2">
+          <button
+            onClick={() => setShowChangePassword(true)}
+            className="rounded-lg bg-slate-800 px-4 py-2 text-sm text-slate-300 hover:bg-slate-700"
+          >
+            Ganti Password
+          </button>
+          <button
+            onClick={() => {
+              clearSession();
+              navigate('/login');
+            }}
+            className="rounded-lg bg-slate-800 px-4 py-2 text-sm text-slate-300 hover:bg-slate-700"
+          >
+            Keluar
+          </button>
+        </div>
       </header>
+
+      {showChangePassword && <ChangePasswordModal onClose={() => setShowChangePassword(false)} />}
 
       {error && <div className="mb-4 rounded-lg bg-red-500/10 px-3 py-2 text-sm text-red-400">{error}</div>}
 

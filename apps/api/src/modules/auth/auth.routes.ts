@@ -1,12 +1,17 @@
 import bcrypt from 'bcryptjs';
 import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
-import { findUserForLogin, touchLastLogin } from './auth.service.js';
+import { findUserForLogin, getPasswordHash, touchLastLogin, updatePasswordHash } from './auth.service.js';
 import type { AuthUserPayload } from '../../types/fastify.js';
 
 const loginSchema = z.object({
   username: z.string().min(1),
   password: z.string().min(1),
+});
+
+const changePasswordSchema = z.object({
+  currentPassword: z.string().min(1),
+  newPassword: z.string().min(8, 'Password baru minimal 8 karakter'),
 });
 
 export default async function authRoutes(fastify: FastifyInstance) {
@@ -45,5 +50,28 @@ export default async function authRoutes(fastify: FastifyInstance) {
 
   fastify.get('/auth/me', { preHandler: fastify.authenticate }, async (request, reply) => {
     return reply.send({ user: request.user });
+  });
+
+  fastify.post('/auth/change-password', { preHandler: fastify.authenticate }, async (request, reply) => {
+    const parsed = changePasswordSchema.safeParse(request.body);
+    if (!parsed.success) {
+      return reply.code(400).send({ error: 'invalid_request', issues: parsed.error.flatten() });
+    }
+    const { currentPassword, newPassword } = parsed.data;
+
+    const currentHash = await getPasswordHash(request.user.sub);
+    if (!currentHash) {
+      return reply.code(404).send({ error: 'not_found' });
+    }
+
+    const currentOk = await bcrypt.compare(currentPassword, currentHash);
+    if (!currentOk) {
+      return reply.code(401).send({ error: 'invalid_credentials', message: 'Password saat ini salah' });
+    }
+
+    const newHash = await bcrypt.hash(newPassword, 10);
+    await updatePasswordHash(request.user.sub, newHash);
+
+    return reply.send({ changed: true });
   });
 }
