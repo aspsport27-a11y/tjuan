@@ -4,18 +4,59 @@ import { NavLink, useLocation, useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../store/auth';
 import { useOutletStore } from '../store/outlet';
 
-const navItems = [
-  { to: '/categories', label: 'Kategori', permission: 'menu.view' },
-  { to: '/menu-items', label: 'Menu', permission: 'menu.view' },
-  { to: '/ingredients', label: 'Bahan & Stok', permission: 'inventory.view' },
-  { to: '/procurement', label: 'Pembelian', permission: 'procurement.manage' },
-  { to: '/shifts', label: 'Shift Kasir', permission: 'shift.manage' },
-  { to: '/expenses', label: 'Pengeluaran', permission: 'expense.manage' },
-  { to: '/daily-report', label: 'Laporan Harian', permission: 'report.view_business' },
-  { to: '/product-report', label: 'Produk & Margin', permission: 'report.view_business' },
-  { to: '/financial-report', label: 'Laporan Keuangan', permission: 'report.view_management' },
-  { to: '/users', label: 'Pengguna', permission: 'user.manage' },
-  { to: '/outlets', label: 'Outlet', permission: 'outlet.manage' },
+interface NavChild {
+  to: string;
+  label: string;
+  permission: string;
+}
+interface NavGroup {
+  id: string;
+  label: string;
+  children: NavChild[];
+}
+
+const navGroups: NavGroup[] = [
+  {
+    id: 'produk',
+    label: 'Produk',
+    children: [
+      { to: '/categories', label: 'Kategori', permission: 'menu.view' },
+      { to: '/menu-items', label: 'Daftar Menu', permission: 'menu.view' },
+    ],
+  },
+  {
+    id: 'inventori',
+    label: 'Inventori',
+    children: [
+      { to: '/ingredients', label: 'Bahan & Stok', permission: 'inventory.view' },
+      { to: '/procurement', label: 'Pembelian', permission: 'procurement.manage' },
+    ],
+  },
+  {
+    id: 'operasional',
+    label: 'Operasional',
+    children: [
+      { to: '/shifts', label: 'Shift Kasir', permission: 'shift.manage' },
+      { to: '/expenses', label: 'Pengeluaran', permission: 'expense.manage' },
+    ],
+  },
+  {
+    id: 'laporan',
+    label: 'Laporan',
+    children: [
+      { to: '/daily-report', label: 'Harian', permission: 'report.view_business' },
+      { to: '/product-report', label: 'Produk & Margin', permission: 'report.view_business' },
+      { to: '/financial-report', label: 'Keuangan', permission: 'report.view_management' },
+    ],
+  },
+  {
+    id: 'pengaturan',
+    label: 'Pengaturan',
+    children: [
+      { to: '/users', label: 'Pengguna', permission: 'user.manage' },
+      { to: '/outlets', label: 'Outlet', permission: 'outlet.manage' },
+    ],
+  },
 ];
 
 export default function Layout({ children }: { children: ReactNode }) {
@@ -26,12 +67,32 @@ export default function Layout({ children }: { children: ReactNode }) {
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
 
-  // Any navigation closes both overlays, otherwise they stay covering the
-  // page the user just landed on.
+  // Hide a group entirely when the user can't see any of its pages, rather
+  // than leaving an empty heading behind.
+  const visibleGroups = navGroups
+    .map((g) => ({ ...g, children: g.children.filter((c) => hasPermission(c.permission)) }))
+    .filter((g) => g.children.length > 0);
+
+  const groupOfPath = (path: string) => visibleGroups.find((g) => g.children.some((c) => c.to === path))?.id;
+
+  const [openGroups, setOpenGroups] = useState<string[]>(() => {
+    const active = groupOfPath(location.pathname);
+    return active ? [active] : visibleGroups.slice(0, 1).map((g) => g.id);
+  });
+
   useEffect(() => {
     setDrawerOpen(false);
     setMenuOpen(false);
+    // Keep the group containing the current page open, without collapsing
+    // whatever else the user chose to expand.
+    const active = groupOfPath(location.pathname);
+    if (active) setOpenGroups((prev) => (prev.includes(active) ? prev : [...prev, active]));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [location.pathname]);
+
+  function toggleGroup(id: string) {
+    setOpenGroups((prev) => (prev.includes(id) ? prev.filter((g) => g !== id) : [...prev, id]));
+  }
 
   function logout() {
     clearSession();
@@ -39,22 +100,60 @@ export default function Layout({ children }: { children: ReactNode }) {
     navigate('/login');
   }
 
-  const linkClass = ({ isActive }: { isActive: boolean }) =>
-    `block rounded-lg px-3 py-2.5 text-sm font-medium ${isActive ? 'bg-sky-500 text-white' : 'text-slate-300 hover:bg-slate-800'}`;
-
   const sidebar = (
     <>
       <div className="px-5 py-6">
         <div className="text-lg font-bold">F&B Admin</div>
       </div>
-      <nav className="flex-1 space-y-1 overflow-y-auto px-3 pb-4">
-        {navItems
-          .filter((item) => hasPermission(item.permission))
-          .map((item) => (
-            <NavLink key={item.to} to={item.to} className={linkClass}>
-              {item.label}
-            </NavLink>
-          ))}
+
+      <nav className="flex-1 space-y-0.5 overflow-y-auto px-3 pb-4">
+        {visibleGroups.map((group) => {
+          const isOpen = openGroups.includes(group.id);
+          const hasActive = group.children.some((c) => c.to === location.pathname);
+          return (
+            <div key={group.id}>
+              <button
+                onClick={() => toggleGroup(group.id)}
+                className={`flex w-full items-center justify-between rounded-lg px-3 py-2.5 text-xs font-semibold uppercase tracking-wide transition ${
+                  hasActive && !isOpen ? 'text-sky-400' : 'text-slate-400'
+                } hover:bg-slate-800 hover:text-slate-200`}
+              >
+                <span>{group.label}</span>
+                <svg
+                  width="14"
+                  height="14"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2.5"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  className={`transition-transform ${isOpen ? 'rotate-180' : ''}`}
+                >
+                  <polyline points="6 9 12 15 18 9" />
+                </svg>
+              </button>
+
+              {isOpen && (
+                <div className="mb-1 space-y-0.5 pl-2">
+                  {group.children.map((item) => (
+                    <NavLink
+                      key={item.to}
+                      to={item.to}
+                      className={({ isActive }) =>
+                        `block rounded-lg px-3 py-2 text-sm font-medium ${
+                          isActive ? 'bg-sky-500 text-white' : 'text-slate-300 hover:bg-slate-800'
+                        }`
+                      }
+                    >
+                      {item.label}
+                    </NavLink>
+                  ))}
+                </div>
+              )}
+            </div>
+          );
+        })}
       </nav>
     </>
   );
