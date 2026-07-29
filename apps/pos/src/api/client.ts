@@ -1,6 +1,10 @@
 import { useAuthStore } from '../store/auth';
 
-const BASE_URL = import.meta.env.VITE_API_BASE_URL;
+// Falls back to a same-origin relative path if the build-time env var is
+// missing -- a silently undefined BASE_URL used to bake the literal string
+// "undefined" into every request URL, breaking all POST/PUT/DELETE calls
+// (nginx's static-file fallback serves GET fine but 405s any other method).
+const BASE_URL = import.meta.env.VITE_API_BASE_URL || '/api';
 
 export class ApiError extends Error {
   constructor(
