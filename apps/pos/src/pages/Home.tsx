@@ -336,6 +336,7 @@ export default function Home() {
 }
 
 function OpenShiftScreen({ error, onOpened, onLogout }: { error: string | null; onOpened: (s: ShiftDto) => void; onLogout: () => void }) {
+  const navigate = useNavigate();
   const [openingCash, setOpeningCash] = useState(0);
   const [busy, setBusy] = useState(false);
   const [localError, setLocalError] = useState<string | null>(null);
@@ -376,6 +377,9 @@ function OpenShiftScreen({ error, onOpened, onLogout }: { error: string | null; 
           className="mb-3 w-full rounded-lg bg-emerald-500 py-3 font-semibold text-white hover:bg-emerald-400 disabled:opacity-50"
         >
           {busy ? 'Membuka...' : 'Buka Shift'}
+        </button>
+        <button onClick={() => navigate('/reports')} className="mb-3 w-full rounded-lg bg-slate-700 py-2 text-sm text-slate-300 hover:bg-slate-600">
+          Laporan
         </button>
         <button onClick={onLogout} className="w-full rounded-lg bg-slate-700 py-2 text-sm text-slate-300 hover:bg-slate-600">
           Keluar
