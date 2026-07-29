@@ -3,6 +3,7 @@ import Login from './pages/Login';
 import Categories from './pages/Categories';
 import MenuItems from './pages/MenuItems';
 import Ingredients from './pages/Ingredients';
+import Users from './pages/Users';
 import ChangePassword from './pages/ChangePassword';
 import RequireAuth from './components/RequireAuth';
 
@@ -31,6 +32,14 @@ export default function App() {
         element={
           <RequireAuth>
             <Ingredients />
+          </RequireAuth>
+        }
+      />
+      <Route
+        path="/users"
+        element={
+          <RequireAuth>
+            <Users />
           </RequireAuth>
         }
       />

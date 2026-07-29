@@ -7,6 +7,7 @@ import menuRoutes from './modules/menu/menu.routes.js';
 import tablesRoutes from './modules/tables/tables.routes.js';
 import ordersRoutes from './modules/orders/orders.routes.js';
 import inventoryRoutes from './modules/inventory/inventory.routes.js';
+import usersRoutes from './modules/users/users.routes.js';
 
 export async function buildApp() {
   const app = Fastify({
@@ -29,6 +30,7 @@ export async function buildApp() {
   await app.register(tablesRoutes, { prefix: '/api' });
   await app.register(ordersRoutes, { prefix: '/api' });
   await app.register(inventoryRoutes, { prefix: '/api' });
+  await app.register(usersRoutes, { prefix: '/api' });
 
   app.setErrorHandler((error: FastifyError, request, reply) => {
     request.log.error(error);

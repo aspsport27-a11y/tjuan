@@ -6,6 +6,7 @@ const navItems = [
   { to: '/categories', label: 'Kategori', permission: 'menu.view' },
   { to: '/menu-items', label: 'Menu', permission: 'menu.view' },
   { to: '/ingredients', label: 'Bahan & Stok', permission: 'inventory.view' },
+  { to: '/users', label: 'Pengguna', permission: 'user.manage' },
 ];
 
 export default function Layout({ children }: { children: ReactNode }) {
