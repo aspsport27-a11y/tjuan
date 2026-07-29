@@ -34,10 +34,11 @@ const navGroups: NavGroup[] = [
   },
   {
     id: 'operasional',
-    label: 'Operasional',
+    label: 'Transaksi Operasional',
     children: [
       { to: '/shifts', label: 'Shift Kasir', permission: 'shift.manage' },
       { to: '/expenses', label: 'Pengeluaran', permission: 'expense.manage' },
+      { to: '/treasury', label: 'Kas & Bank', permission: 'treasury.view' },
     ],
   },
   {

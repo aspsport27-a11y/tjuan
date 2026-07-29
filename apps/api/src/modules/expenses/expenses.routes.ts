@@ -4,6 +4,7 @@ import { pool } from '../../db/pool.js';
 import { requirePermission } from '../rbac/require-permission.js';
 import { resolveOutletId } from '../../utils/outlet-scope.js';
 import { getOpenShiftId } from '../shifts/shifts.service.js';
+import { assertAccountUsable, postLedger, reverseLedgerFor } from '../treasury/treasury.service.js';
 
 const EXPENSE_CATEGORIES = ['bahan_baku', 'gaji', 'sewa', 'utilitas', 'operasional', 'transport', 'lainnya'] as const;
 
@@ -15,6 +16,9 @@ const createExpenseInput = z.object({
   // elsewhere (bank/owner) that must not touch drawer reconciliation.
   source: z.enum(['cash_drawer', 'outlet']).default('cash_drawer'),
   expenseDate: z.string().optional(),
+  // Which account the money left. Optional: till expenses come out of the
+  // drawer, which isn't an account.
+  accountId: z.string().uuid().optional(),
 });
 
 export default async function expensesRoutes(fastify: FastifyInstance) {
@@ -26,7 +30,7 @@ export default async function expensesRoutes(fastify: FastifyInstance) {
     const { from, to, source } = request.query as { from?: string; to?: string; source?: string };
 
     const { rows } = await pool.query(
-      `SELECT e.id, e.category, e.amount, e.notes, e.source, e.expense_date, e.recorded_at,
+      `SELECT e.id, e.category, e.amount, e.notes, e.source, e.expense_date, e.recorded_at, e.account_id,
               e.shift_id, u.full_name AS recorded_by_name
        FROM outlet_expenses e
        LEFT JOIN users u ON u.id = e.recorded_by
@@ -57,13 +61,38 @@ export default async function expensesRoutes(fastify: FastifyInstance) {
       }
     }
 
-    const { rows } = await pool.query(
-      `INSERT INTO outlet_expenses (outlet_id, shift_id, category, amount, notes, source, expense_date, recorded_by)
-       VALUES ($1, $2, $3, $4, $5, $6, COALESCE($7::date, CURRENT_DATE), $8)
-       RETURNING id, category, amount, notes, source, expense_date, recorded_at`,
-      [outletId, shiftId, d.category, d.amount, d.notes ?? null, d.source, d.expenseDate ?? null, request.user.sub],
-    );
-    return reply.code(201).send({ expense: rows[0] });
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
+
+      if (d.accountId && !(await assertAccountUsable(client, d.accountId, outletId))) {
+        await client.query('ROLLBACK');
+        return reply.code(404).send({ error: 'account_not_found' });
+      }
+
+      const { rows } = await client.query(
+        `INSERT INTO outlet_expenses (outlet_id, shift_id, category, amount, notes, source, expense_date, account_id, recorded_by)
+         VALUES ($1, $2, $3, $4, $5, $6, COALESCE($7::date, CURRENT_DATE), $8, $9)
+         RETURNING id, category, amount, notes, source, expense_date, account_id, recorded_at`,
+        [outletId, shiftId, d.category, d.amount, d.notes ?? null, d.source, d.expenseDate ?? null, d.accountId ?? null, request.user.sub],
+      );
+
+      if (d.accountId) {
+        await postLedger(client, {
+          accountId: d.accountId, direction: 'out', amount: d.amount, kind: 'expense',
+          referenceType: 'outlet_expense', referenceId: rows[0].id, txDate: d.expenseDate ?? null,
+          notes: d.notes ?? `Pengeluaran ${d.category}`, userId: request.user.sub,
+        });
+      }
+
+      await client.query('COMMIT');
+      return reply.code(201).send({ expense: rows[0] });
+    } catch (err) {
+      await client.query('ROLLBACK');
+      throw err;
+    } finally {
+      client.release();
+    }
   });
 
   fastify.delete('/expenses/:id', { preHandler: requirePermission('expense.manage') }, async (request, reply) => {
@@ -87,7 +116,20 @@ export default async function expensesRoutes(fastify: FastifyInstance) {
       });
     }
 
-    await pool.query(`DELETE FROM outlet_expenses WHERE id = $1 AND outlet_id = $2`, [id, outletId]);
-    return reply.code(204).send();
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
+      // Reverse any account movement before removing the expense, otherwise
+      // the balance would keep a deduction with nothing explaining it.
+      await reverseLedgerFor(client, 'outlet_expense', id, request.user.sub);
+      await client.query(`DELETE FROM outlet_expenses WHERE id = $1 AND outlet_id = $2`, [id, outletId]);
+      await client.query('COMMIT');
+      return reply.code(204).send();
+    } catch (err) {
+      await client.query('ROLLBACK');
+      throw err;
+    } finally {
+      client.release();
+    }
   });
 }

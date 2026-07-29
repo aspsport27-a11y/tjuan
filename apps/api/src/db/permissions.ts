@@ -32,6 +32,10 @@ export const PERMISSIONS = [
   // Procurement
   { code: 'procurement.manage', module: 'inventory', description: 'Kelola supplier & pembelian bahan' },
 
+  // Treasury
+  { code: 'treasury.view', module: 'finance', description: 'Lihat kas & bank' },
+  { code: 'treasury.manage', module: 'finance', description: 'Kelola rekening, transfer, setoran, rekonsiliasi' },
+
   // Reports
   { code: 'report.view_business', module: 'report', description: 'Lihat laporan bisnis (omzet, produk terlaris)' },
   { code: 'report.view_management', module: 'report', description: 'Lihat laporan manajemen (HPP, margin, biaya)' },
@@ -62,6 +66,7 @@ export const DEFAULT_ROLES: Record<string, { name: string; description: string; 
       'shift.manage',
       'expense.manage',
       'procurement.manage',
+      'treasury.view',
       'report.view_business', 'report.view_management',
     ],
   },

@@ -13,6 +13,7 @@ import shiftsRoutes from './modules/shifts/shifts.routes.js';
 import expensesRoutes from './modules/expenses/expenses.routes.js';
 import reportsRoutes from './modules/reports/reports.routes.js';
 import procurementRoutes from './modules/procurement/procurement.routes.js';
+import treasuryRoutes from './modules/treasury/treasury.routes.js';
 
 export async function buildApp() {
   const app = Fastify({
@@ -41,6 +42,7 @@ export async function buildApp() {
   await app.register(expensesRoutes, { prefix: '/api' });
   await app.register(reportsRoutes, { prefix: '/api' });
   await app.register(procurementRoutes, { prefix: '/api' });
+  await app.register(treasuryRoutes, { prefix: '/api' });
 
   app.setErrorHandler((error: FastifyError, request, reply) => {
     request.log.error(error);

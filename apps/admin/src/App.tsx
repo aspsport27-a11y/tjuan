@@ -7,6 +7,7 @@ import Users from './pages/Users';
 import Outlets from './pages/Outlets';
 import Expenses from './pages/Expenses';
 import Procurement from './pages/Procurement';
+import Treasury from './pages/Treasury';
 import Shifts from './pages/Shifts';
 import DailyReport from './pages/DailyReport';
 import ProductReport from './pages/ProductReport';
@@ -103,6 +104,14 @@ export default function App() {
         element={
           <RequireAuth>
             <FinancialReport />
+          </RequireAuth>
+        }
+      />
+      <Route
+        path="/treasury"
+        element={
+          <RequireAuth>
+            <Treasury />
           </RequireAuth>
         }
       />

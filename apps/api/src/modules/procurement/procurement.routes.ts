@@ -5,6 +5,7 @@ import { requirePermission } from '../rbac/require-permission.js';
 import { resolveOutletId } from '../../utils/outlet-scope.js';
 import { applyStockMovement } from '../inventory/inventory.service.js';
 import { nextPoNumber } from './procurement.service.js';
+import { assertAccountUsable, postLedger } from '../treasury/treasury.service.js';
 
 const supplierInput = z.object({
   name: z.string().min(1),
@@ -279,31 +280,62 @@ export default async function procurementRoutes(fastify: FastifyInstance) {
       .object({
         paymentMethod: z.enum(['cash', 'transfer', 'other']).default('transfer'),
         paidAt: z.string().optional(),
+        accountId: z.string().uuid().optional(),
       })
       .safeParse(request.body ?? {});
     if (!parsed.success) return reply.code(400).send({ error: 'invalid_request', issues: parsed.error.flatten() });
 
-    const current = await pool.query(
-      `SELECT status, payment_status FROM purchase_orders WHERE id = $1 AND outlet_id = $2`,
-      [id, outletId],
-    );
-    if (current.rows.length === 0) return reply.code(404).send({ error: 'not_found' });
-    if (current.rows[0].status === 'cancelled') {
-      return reply.code(409).send({ error: 'po_cancelled', message: 'PO yang dibatalkan tidak bisa dibayar' });
-    }
-    if (current.rows[0].payment_status === 'paid') {
-      return reply.code(409).send({ error: 'already_paid', message: 'PO ini sudah ditandai dibayar' });
-    }
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
 
-    const { rows } = await pool.query(
-      `UPDATE purchase_orders
-       SET payment_status = 'paid', paid_at = COALESCE($3::timestamptz, now()),
-           paid_by = $4, payment_method = $5
-       WHERE id = $1 AND outlet_id = $2
-       RETURNING id, po_number, payment_status, paid_at, payment_method`,
-      [id, outletId, parsed.data.paidAt ?? null, request.user.sub, parsed.data.paymentMethod],
-    );
-    return reply.send({ purchaseOrder: rows[0] });
+      const current = await client.query(
+        `SELECT status, payment_status, total_amount, po_number FROM purchase_orders
+         WHERE id = $1 AND outlet_id = $2 FOR UPDATE`,
+        [id, outletId],
+      );
+      if (current.rows.length === 0) {
+        await client.query('ROLLBACK');
+        return reply.code(404).send({ error: 'not_found' });
+      }
+      if (current.rows[0].status === 'cancelled') {
+        await client.query('ROLLBACK');
+        return reply.code(409).send({ error: 'po_cancelled', message: 'PO yang dibatalkan tidak bisa dibayar' });
+      }
+      if (current.rows[0].payment_status === 'paid') {
+        await client.query('ROLLBACK');
+        return reply.code(409).send({ error: 'already_paid', message: 'PO ini sudah ditandai dibayar' });
+      }
+      if (parsed.data.accountId && !(await assertAccountUsable(client, parsed.data.accountId, outletId))) {
+        await client.query('ROLLBACK');
+        return reply.code(404).send({ error: 'account_not_found' });
+      }
+
+      const { rows } = await client.query(
+        `UPDATE purchase_orders
+         SET payment_status = 'paid', paid_at = COALESCE($3::timestamptz, now()),
+             paid_by = $4, payment_method = $5, paid_account_id = $6
+         WHERE id = $1 AND outlet_id = $2
+         RETURNING id, po_number, payment_status, paid_at, payment_method`,
+        [id, outletId, parsed.data.paidAt ?? null, request.user.sub, parsed.data.paymentMethod, parsed.data.accountId ?? null],
+      );
+
+      if (parsed.data.accountId) {
+        await postLedger(client, {
+          accountId: parsed.data.accountId, direction: 'out', amount: Number(current.rows[0].total_amount),
+          kind: 'purchase_payment', referenceType: 'purchase_order', referenceId: id,
+          notes: `Bayar ${current.rows[0].po_number}`, userId: request.user.sub,
+        });
+      }
+
+      await client.query('COMMIT');
+      return reply.send({ purchaseOrder: rows[0] });
+    } catch (err) {
+      await client.query('ROLLBACK');
+      throw err;
+    } finally {
+      client.release();
+    }
   });
 
   fastify.post('/purchase-orders/:id/cancel', { preHandler: requirePermission('procurement.manage') }, async (request, reply) => {
