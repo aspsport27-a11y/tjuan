@@ -2,6 +2,7 @@ import { Navigate, Route, Routes } from 'react-router-dom';
 import Login from './pages/Login';
 import Home from './pages/Home';
 import BillDetail from './pages/BillDetail';
+import Reports from './pages/Reports';
 import RequireAuth from './components/RequireAuth';
 
 export default function App() {
@@ -13,6 +14,14 @@ export default function App() {
         element={
           <RequireAuth>
             <Home />
+          </RequireAuth>
+        }
+      />
+      <Route
+        path="/reports"
+        element={
+          <RequireAuth>
+            <Reports />
           </RequireAuth>
         }
       />

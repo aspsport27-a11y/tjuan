@@ -173,6 +173,9 @@ export default function Home() {
             <div className="text-sm text-slate-400">{user?.fullName} &middot; Shift #{shift.shift_number}</div>
           </div>
           <div className="flex flex-wrap gap-2">
+            <button onClick={() => navigate('/reports')} className="rounded-lg bg-slate-800 px-3 py-2 text-xs text-slate-300 hover:bg-slate-700">
+              Laporan
+            </button>
             <button onClick={() => setShowExpense(true)} className="rounded-lg bg-slate-800 px-3 py-2 text-xs text-slate-300 hover:bg-slate-700">
               Catat Pengeluaran
             </button>

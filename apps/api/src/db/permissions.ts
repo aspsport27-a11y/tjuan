@@ -80,6 +80,7 @@ export const DEFAULT_ROLES: Record<string, { name: string; description: string; 
       'payment.create',
       'shift.manage',
       'expense.manage',
+      'report.view_business',
     ],
   },
   inventory_staff: {
