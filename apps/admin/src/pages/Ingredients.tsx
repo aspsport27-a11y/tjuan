@@ -26,6 +26,7 @@ export default function Ingredients() {
   const [costPerUnit, setCostPerUnit] = useState('0');
 
   const [adjustTarget, setAdjustTarget] = useState<Ingredient | null>(null);
+  const [historyTarget, setHistoryTarget] = useState<Ingredient | null>(null);
 
   async function load() {
     setLoading(true);
@@ -121,9 +122,12 @@ export default function Ingredients() {
                     </td>
                     <td className="px-4 py-3 text-slate-500">{Number(i.min_stock)} {i.unit}</td>
                     <td className="px-4 py-3 text-slate-700">{formatRupiah(Number(i.cost_per_unit))}</td>
-                    <td className="px-4 py-3 text-right">
+                    <td className="space-x-3 px-4 py-3 text-right">
                       <button onClick={() => setAdjustTarget(i)} className="text-xs text-sky-600 hover:text-sky-800">
                         Sesuaikan Stok
+                      </button>
+                      <button onClick={() => setHistoryTarget(i)} className="text-xs text-slate-500 hover:text-slate-700">
+                        Riwayat
                       </button>
                     </td>
                   </tr>
@@ -151,12 +155,102 @@ export default function Ingredients() {
           }}
         />
       )}
+
+      {historyTarget && <HistoryModal ingredient={historyTarget} onClose={() => setHistoryTarget(null)} />}
     </Layout>
   );
 }
 
+interface Movement {
+  id: string;
+  type: string;
+  quantity: string;
+  unit_cost: string | null;
+  reference_type: string | null;
+  notes: string | null;
+  created_at: string;
+  created_by_name: string | null;
+}
+
+const MOVEMENT_LABELS: Record<string, string> = {
+  purchase: 'Pembelian',
+  sale_deduction: 'Terjual',
+  usage: 'Pemakaian',
+  waste: 'Terbuang',
+  adjustment: 'Koreksi',
+};
+
+function HistoryModal({ ingredient, onClose }: { ingredient: Ingredient; onClose: () => void }) {
+  const [movements, setMovements] = useState<Movement[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    api
+      .get<{ movements: Movement[] }>(`/ingredients/${ingredient.id}/history`)
+      .then((res) => setMovements(res.movements))
+      .catch((err) => {
+        if (err instanceof ApiError) setError(err.message);
+      })
+      .finally(() => setLoading(false));
+  }, [ingredient.id]);
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+      <div className="max-h-[85vh] w-full max-w-2xl overflow-y-auto rounded-2xl bg-white p-6">
+        <h3 className="mb-1 text-lg font-bold text-slate-900">Riwayat Stok</h3>
+        <p className="mb-4 text-xs text-slate-500">
+          {ingredient.name} &middot; stok saat ini {Number(ingredient.current_stock)} {ingredient.unit}
+        </p>
+
+        {error && <div className="mb-3 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600">{error}</div>}
+
+        {loading ? (
+          <p className="text-slate-500">Memuat...</p>
+        ) : movements.length === 0 ? (
+          <p className="py-6 text-center text-slate-400">Belum ada pergerakan stok</p>
+        ) : (
+          <table className="mb-6 w-full text-left text-sm">
+            <thead className="text-xs text-slate-500">
+              <tr>
+                <th className="py-2">Waktu</th>
+                <th className="py-2">Jenis</th>
+                <th className="py-2 text-right">Perubahan</th>
+                <th className="py-2">Catatan</th>
+                <th className="py-2">Oleh</th>
+              </tr>
+            </thead>
+            <tbody>
+              {movements.map((m) => {
+                const qty = Number(m.quantity);
+                return (
+                  <tr key={m.id} className="border-t border-slate-100">
+                    <td className="py-2 text-slate-600">{new Date(m.created_at).toLocaleString('id-ID')}</td>
+                    <td className="py-2 text-slate-700">{MOVEMENT_LABELS[m.type] ?? m.type}</td>
+                    <td className={`py-2 text-right font-medium ${qty >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>
+                      {qty >= 0 ? '+' : ''}{qty} {ingredient.unit}
+                    </td>
+                    <td className="py-2 text-slate-500">
+                      {m.notes ?? (m.reference_type === 'order_item' ? 'dari penjualan' : m.reference_type === 'purchase_order' ? 'dari PO' : '-')}
+                    </td>
+                    <td className="py-2 text-slate-500">{m.created_by_name ?? '-'}</td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        )}
+
+        <button onClick={onClose} className="w-full rounded-lg bg-slate-100 py-2.5 text-slate-700 hover:bg-slate-200">
+          Tutup
+        </button>
+      </div>
+    </div>
+  );
+}
+
 function AdjustModal({ ingredient, onClose, onSaved }: { ingredient: Ingredient; onClose: () => void; onSaved: () => void }) {
-  const [type, setType] = useState<'purchase' | 'adjustment' | 'waste'>('purchase');
+  const [type, setType] = useState<'purchase' | 'usage' | 'adjustment' | 'waste'>('purchase');
   const [quantity, setQuantity] = useState('');
   const [unitCost, setUnitCost] = useState(ingredient.cost_per_unit);
   const [notes, setNotes] = useState('');
@@ -169,9 +263,10 @@ function AdjustModal({ ingredient, onClose, onSaved }: { ingredient: Ingredient;
     setBusy(true);
     setError(null);
     try {
-      // "purchase" always adds, "waste" always removes; only "adjustment"
-      // (koreksi) takes the sign the user typed.
-      const signedQty = type === 'waste' ? -Math.abs(qty) : type === 'purchase' ? Math.abs(qty) : qty;
+      // "purchase" always adds, "waste"/"usage" always remove; only
+      // "adjustment" (koreksi) takes the sign the user typed.
+      const signedQty =
+        type === 'waste' || type === 'usage' ? -Math.abs(qty) : type === 'purchase' ? Math.abs(qty) : qty;
       await api.post(`/ingredients/${ingredient.id}/adjust`, {
         quantity: signedQty,
         type,
@@ -194,17 +289,23 @@ function AdjustModal({ ingredient, onClose, onSaved }: { ingredient: Ingredient;
 
         {error && <div className="mb-3 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600">{error}</div>}
 
-        <div className="mb-3 grid grid-cols-3 gap-2">
-          {(['purchase', 'adjustment', 'waste'] as const).map((t) => (
+        <div className="mb-3 grid grid-cols-4 gap-2">
+          {(['purchase', 'usage', 'waste', 'adjustment'] as const).map((t) => (
             <button
               key={t}
               onClick={() => setType(t)}
               className={`rounded-lg py-2 text-xs font-medium ${type === t ? 'bg-sky-500 text-white' : 'bg-slate-100 text-slate-600'}`}
             >
-              {t === 'purchase' ? 'Pembelian' : t === 'waste' ? 'Terbuang' : 'Koreksi'}
+              {t === 'purchase' ? 'Pembelian' : t === 'usage' ? 'Pemakaian' : t === 'waste' ? 'Terbuang' : 'Koreksi'}
             </button>
           ))}
         </div>
+
+        {type === 'usage' && (
+          <p className="mb-3 rounded-lg bg-slate-50 px-3 py-2 text-xs text-slate-500">
+            Untuk pemakaian di luar penjualan (prep dapur, konsumsi staff, dll). Pemakaian dari penjualan sudah dipotong otomatis lewat resep.
+          </p>
+        )}
 
         <label className="mb-1 block text-xs text-slate-500">
           {type === 'adjustment' ? 'Perubahan (boleh negatif)' : 'Jumlah'} ({ingredient.unit})

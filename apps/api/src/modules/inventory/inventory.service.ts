@@ -1,6 +1,6 @@
 import type { PoolClient } from 'pg';
 
-export type StockMovementType = 'purchase' | 'sale_deduction' | 'adjustment' | 'waste';
+export type StockMovementType = 'purchase' | 'sale_deduction' | 'adjustment' | 'waste' | 'usage';
 
 /**
  * Apply a single stock movement: move current_stock and write the matching

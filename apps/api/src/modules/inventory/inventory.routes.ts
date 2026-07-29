@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { pool } from '../../db/pool.js';
 import { requirePermission } from '../rbac/require-permission.js';
 import { resolveOutletId } from '../../utils/outlet-scope.js';
+import { applyStockMovement } from './inventory.service.js';
 
 const ingredientInput = z.object({
   name: z.string().min(1),
@@ -13,7 +14,7 @@ const ingredientInput = z.object({
 
 const adjustmentInput = z.object({
   quantity: z.number().refine((v) => v !== 0, 'quantity tidak boleh 0'), // positive = stock in, negative = stock out
-  type: z.enum(['purchase', 'adjustment', 'waste']),
+  type: z.enum(['purchase', 'adjustment', 'waste', 'usage']),
   unitCost: z.number().nonnegative().optional(),
   notes: z.string().optional(),
 });
@@ -81,14 +82,16 @@ export default async function inventoryRoutes(fastify: FastifyInstance) {
         return reply.code(409).send({ error: 'insufficient_stock', message: 'Penyesuaian akan membuat stok negatif' });
       }
 
-      await client.query(`UPDATE ingredients SET current_stock = $2${d.type === 'purchase' && d.unitCost != null ? ', cost_per_unit = $3' : ''} WHERE id = $1`,
-        d.type === 'purchase' && d.unitCost != null ? [id, newStock, d.unitCost] : [id, newStock]);
-
-      await client.query(
-        `INSERT INTO inventory_transactions (outlet_id, ingredient_id, type, quantity, unit_cost, reference_type, notes, created_by)
-         VALUES ($1, $2, $3, $4, $5, 'manual', $6, $7)`,
-        [outletId, id, d.type, d.quantity, d.unitCost ?? null, d.notes ?? null, request.user.sub],
-      );
+      await applyStockMovement(client, {
+        outletId,
+        ingredientId: id,
+        type: d.type,
+        quantity: d.quantity,
+        unitCost: d.unitCost ?? null,
+        referenceType: 'manual',
+        notes: d.notes ?? null,
+        userId: request.user.sub,
+      });
 
       await client.query('COMMIT');
       return reply.send({ currentStock: newStock });
@@ -98,6 +101,33 @@ export default async function inventoryRoutes(fastify: FastifyInstance) {
     } finally {
       client.release();
     }
+  });
+
+  // Stock ledger for one ingredient: every movement in/out with its source,
+  // so a discrepancy can be traced back to a sale, a purchase, or a manual entry.
+  fastify.get('/ingredients/:id/history', { preHandler: requirePermission('inventory.view') }, async (request, reply) => {
+    const outletId = resolveOutletId(request, reply);
+    if (!outletId) return;
+    const { id } = request.params as { id: string };
+    const { from, to } = request.query as { from?: string; to?: string };
+
+    const owned = await pool.query(`SELECT id, name, unit, current_stock FROM ingredients WHERE id = $1 AND outlet_id = $2`, [id, outletId]);
+    if (owned.rows.length === 0) return reply.code(404).send({ error: 'not_found' });
+
+    const { rows } = await pool.query(
+      `SELECT it.id, it.type, it.quantity, it.unit_cost, it.reference_type, it.reference_id,
+              it.notes, it.created_at, u.full_name AS created_by_name
+       FROM inventory_transactions it
+       LEFT JOIN users u ON u.id = it.created_by
+       WHERE it.ingredient_id = $1
+         AND ($2::date IS NULL OR it.created_at >= $2::date)
+         AND ($3::date IS NULL OR it.created_at < $3::date + interval '1 day')
+       ORDER BY it.created_at DESC
+       LIMIT 200`,
+      [id, from ?? null, to ?? null],
+    );
+
+    return reply.send({ ingredient: owned.rows[0], movements: rows });
   });
 
   // --- Recipes (BOM) ---------------------------------------------------------
