@@ -1,0 +1,21 @@
+{
+  "name": "fnb-pos-system",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Internal F&B POS + backend system",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev:api": "npm run dev -w apps/api",
+    "dev:pos": "npm run dev -w apps/pos",
+    "dev:admin": "npm run dev -w apps/admin",
+    "build": "npm run build -w packages/shared && npm run build -w apps/api && npm run build -w apps/pos && npm run build -w apps/admin",
+    "migrate": "npm run migrate -w apps/api",
+    "seed": "npm run seed -w apps/api"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

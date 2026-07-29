@@ -1,0 +1,153 @@
+import type { FastifyInstance } from 'fastify';
+import { z } from 'zod';
+import { pool } from '../../db/pool.js';
+import { requirePermission } from '../rbac/require-permission.js';
+import { resolveOutletId } from '../../utils/outlet-scope.js';
+
+const ingredientInput = z.object({
+  name: z.string().min(1),
+  unit: z.string().min(1),
+  minStock: z.number().nonnegative().default(0),
+  costPerUnit: z.number().nonnegative().default(0),
+});
+
+const adjustmentInput = z.object({
+  quantity: z.number().refine((v) => v !== 0, 'quantity tidak boleh 0'), // positive = stock in, negative = stock out
+  type: z.enum(['purchase', 'adjustment', 'waste']),
+  unitCost: z.number().nonnegative().optional(),
+  notes: z.string().optional(),
+});
+
+const recipeItemInput = z.object({
+  ingredientId: z.string().uuid(),
+  quantity: z.number().positive(),
+});
+
+export default async function inventoryRoutes(fastify: FastifyInstance) {
+  fastify.addHook('preHandler', fastify.authenticate);
+
+  // --- Ingredients -----------------------------------------------------------
+
+  fastify.get('/ingredients', { preHandler: requirePermission('inventory.view') }, async (request, reply) => {
+    const outletId = resolveOutletId(request, reply);
+    if (!outletId) return;
+    const { rows } = await pool.query(
+      `SELECT id, name, unit, current_stock, min_stock, cost_per_unit, is_active
+       FROM ingredients WHERE outlet_id = $1 ORDER BY name`,
+      [outletId],
+    );
+    return reply.send({ ingredients: rows });
+  });
+
+  fastify.post('/ingredients', { preHandler: requirePermission('inventory.manage') }, async (request, reply) => {
+    const outletId = resolveOutletId(request, reply);
+    if (!outletId) return;
+    const parsed = ingredientInput.safeParse(request.body);
+    if (!parsed.success) return reply.code(400).send({ error: 'invalid_request', issues: parsed.error.flatten() });
+    const d = parsed.data;
+
+    const { rows } = await pool.query(
+      `INSERT INTO ingredients (outlet_id, name, unit, min_stock, cost_per_unit)
+       VALUES ($1, $2, $3, $4, $5)
+       RETURNING id, name, unit, current_stock, min_stock, cost_per_unit, is_active`,
+      [outletId, d.name, d.unit, d.minStock, d.costPerUnit],
+    );
+    return reply.code(201).send({ ingredient: rows[0] });
+  });
+
+  // Manual stock movement: purchases, adjustments, waste. Sale-driven
+  // deductions happen automatically in orders.routes.ts and never go
+  // through this endpoint.
+  fastify.post('/ingredients/:id/adjust', { preHandler: requirePermission('inventory.manage') }, async (request, reply) => {
+    const outletId = resolveOutletId(request, reply);
+    if (!outletId) return;
+    const { id } = request.params as { id: string };
+    const parsed = adjustmentInput.safeParse(request.body);
+    if (!parsed.success) return reply.code(400).send({ error: 'invalid_request', issues: parsed.error.flatten() });
+    const d = parsed.data;
+
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
+
+      const current = await client.query(`SELECT current_stock FROM ingredients WHERE id = $1 FOR UPDATE`, [id]);
+      if (current.rows.length === 0) {
+        await client.query('ROLLBACK');
+        return reply.code(404).send({ error: 'not_found' });
+      }
+      const newStock = Number(current.rows[0].current_stock) + d.quantity;
+      if (newStock < 0) {
+        await client.query('ROLLBACK');
+        return reply.code(409).send({ error: 'insufficient_stock', message: 'Penyesuaian akan membuat stok negatif' });
+      }
+
+      await client.query(`UPDATE ingredients SET current_stock = $2${d.type === 'purchase' && d.unitCost != null ? ', cost_per_unit = $3' : ''} WHERE id = $1`,
+        d.type === 'purchase' && d.unitCost != null ? [id, newStock, d.unitCost] : [id, newStock]);
+
+      await client.query(
+        `INSERT INTO inventory_transactions (outlet_id, ingredient_id, type, quantity, unit_cost, reference_type, notes, created_by)
+         VALUES ($1, $2, $3, $4, $5, 'manual', $6, $7)`,
+        [outletId, id, d.type, d.quantity, d.unitCost ?? null, d.notes ?? null, request.user.sub],
+      );
+
+      await client.query('COMMIT');
+      return reply.send({ currentStock: newStock });
+    } catch (err) {
+      await client.query('ROLLBACK');
+      throw err;
+    } finally {
+      client.release();
+    }
+  });
+
+  // --- Recipes (BOM) ---------------------------------------------------------
+
+  fastify.get('/menu-items/:id/recipe', { preHandler: requirePermission('inventory.view', 'menu.view') }, async (request, reply) => {
+    const { id } = request.params as { id: string };
+    const { rows } = await pool.query(
+      `SELECT ri.id, ri.ingredient_id, i.name, i.unit, ri.quantity
+       FROM recipe_items ri JOIN ingredients i ON i.id = ri.ingredient_id
+       WHERE ri.menu_item_id = $1 ORDER BY i.name`,
+      [id],
+    );
+    return reply.send({ recipe: rows });
+  });
+
+  fastify.put('/menu-items/:id/recipe', { preHandler: requirePermission('inventory.manage', 'menu.manage') }, async (request, reply) => {
+    const { id } = request.params as { id: string };
+    const parsed = z.array(recipeItemInput).safeParse(request.body);
+    if (!parsed.success) return reply.code(400).send({ error: 'invalid_request', issues: parsed.error.flatten() });
+
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
+      await client.query(`DELETE FROM recipe_items WHERE menu_item_id = $1`, [id]);
+      for (const item of parsed.data) {
+        await client.query(
+          `INSERT INTO recipe_items (menu_item_id, ingredient_id, quantity) VALUES ($1, $2, $3)`,
+          [id, item.ingredientId, item.quantity],
+        );
+      }
+      await client.query('COMMIT');
+      return reply.send({ saved: true, count: parsed.data.length });
+    } catch (err) {
+      await client.query('ROLLBACK');
+      throw err;
+    } finally {
+      client.release();
+    }
+  });
+
+  // HPP helper: cost of one unit of a menu item based on its current recipe
+  // and ingredient cost_per_unit.
+  fastify.get('/menu-items/:id/cost', { preHandler: requirePermission('report.view_management') }, async (request, reply) => {
+    const { id } = request.params as { id: string };
+    const { rows } = await pool.query(
+      `SELECT COALESCE(SUM(ri.quantity * i.cost_per_unit), 0) AS cost
+       FROM recipe_items ri JOIN ingredients i ON i.id = ri.ingredient_id
+       WHERE ri.menu_item_id = $1`,
+      [id],
+    );
+    return reply.send({ menuItemId: id, estimatedCost: Number(rows[0].cost) });
+  });
+}
