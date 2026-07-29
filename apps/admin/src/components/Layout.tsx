@@ -162,18 +162,18 @@ export default function Layout({ children }: { children: ReactNode }) {
   return (
     <div className="flex min-h-screen bg-slate-100">
       {/* Desktop: permanent sidebar */}
-      <aside className="hidden w-56 shrink-0 flex-col bg-slate-900 text-white md:flex">{sidebar}</aside>
+      <aside className="hidden w-56 shrink-0 flex-col bg-slate-900 text-white md:flex print:hidden">{sidebar}</aside>
 
       {/* Mobile: off-canvas drawer */}
       {drawerOpen && (
-        <div className="fixed inset-0 z-40 md:hidden">
+        <div className="fixed inset-0 z-40 md:hidden print:hidden">
           <div className="absolute inset-0 bg-black/50" onClick={() => setDrawerOpen(false)} />
           <aside className="absolute left-0 top-0 flex h-full w-64 flex-col bg-slate-900 text-white shadow-xl">{sidebar}</aside>
         </div>
       )}
 
       <div className="flex min-w-0 flex-1 flex-col">
-        <header className="flex items-center gap-3 border-b border-slate-200 bg-white px-4 py-2.5">
+        <header className="flex items-center gap-3 border-b border-slate-200 bg-white px-4 py-2.5 print:hidden">
           <button
             onClick={() => setDrawerOpen(true)}
             aria-label="Buka menu"

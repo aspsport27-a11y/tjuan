@@ -94,14 +94,25 @@ export default function Reports() {
           <h1 className="text-xl font-bold text-white">Laporan</h1>
           <p className="text-sm text-slate-400">Penjualan &amp; pengeluaran</p>
         </div>
-        <button onClick={() => navigate('/')} className="rounded-lg bg-slate-800 px-4 py-2 text-sm text-slate-300 hover:bg-slate-700">
-          &larr; Kembali
-        </button>
+        <div className="flex gap-2 print:hidden">
+          <button onClick={() => window.print()} className="rounded-lg bg-sky-600 px-4 py-2 text-sm text-white hover:bg-sky-500">
+            Cetak
+          </button>
+          <button onClick={() => navigate('/')} className="rounded-lg bg-slate-800 px-4 py-2 text-sm text-slate-300 hover:bg-slate-700">
+            &larr; Kembali
+          </button>
+        </div>
       </header>
+
+      {/* Only visible on the printed page, so the paper shows what period it covers. */}
+      <p className="mb-4 hidden print:block">
+        Periode: {new Date(from).toLocaleDateString('id-ID')} &ndash; {new Date(to).toLocaleDateString('id-ID')}
+        {' '}&middot; Dicetak {new Date().toLocaleString('id-ID')}
+      </p>
 
       {error && <div className="mb-4 rounded-lg bg-red-500/10 px-3 py-2 text-sm text-red-400">{error}</div>}
 
-      <div className="mb-4 flex flex-wrap items-end gap-2">
+      <div className="mb-4 flex flex-wrap items-end gap-2 print:hidden">
         <div>
           <label className="mb-1 block text-xs text-slate-500">Dari</label>
           <input type="date" value={from} onChange={(e) => setFrom(e.target.value)} className="rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-white outline-none focus:border-sky-500" />

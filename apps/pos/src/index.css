@@ -9,3 +9,15 @@ html, body, #root {
 body {
   -webkit-tap-highlight-color: transparent;
 }
+
+/* The POS is dark-on-dark by design, which prints as invisible text on a
+   white page (most browsers drop background colors when printing unless the
+   user opts in). Force plain black-on-white for print instead of trying to
+   preserve the on-screen theme. */
+@media print {
+  * {
+    background: #fff !important;
+    color: #000 !important;
+    box-shadow: none !important;
+  }
+}

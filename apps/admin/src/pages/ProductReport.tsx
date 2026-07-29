@@ -42,17 +42,28 @@ export default function ProductReport() {
   const [error, setError] = useState<string | null>(null);
   const activeOutletId = useOutletStore((s) => s.activeOutletId);
 
+  // Pagination only makes sense on screen -- a printed page can't page, so
+  // rows beyond page 1 would silently never make it onto paper. Switch to an
+  // effectively unlimited page size for the duration of the print.
+  const [isPrinting, setIsPrinting] = useState(false);
+  useEffect(() => {
+    const mq = window.matchMedia('print');
+    const onChange = (e: MediaQueryListEvent) => setIsPrinting(e.matches);
+    mq.addEventListener('change', onChange);
+    return () => mq.removeEventListener('change', onChange);
+  }, []);
+
   // Sorting is the point of this report: "best seller" and "best margin" are
   // different questions and the owner needs both.
   const grid = useGrid(report?.products ?? [], {
     searchFields: [(p) => p.name],
+    pageSize: isPrinting ? Number.MAX_SAFE_INTEGER : 25,
     sortValue: (p, key) =>
       key === 'revenue' ? Number(p.revenue)
       : key === 'margin' ? Number(p.margin ?? 0)
       : key === 'name' ? p.name
       : Number(p.qty_sold),
     initialSort: { key: 'qty', dir: 'desc' },
-    pageSize: 25,
   });
 
   async function load() {
@@ -77,12 +88,21 @@ export default function ProductReport() {
     <Layout>
       <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
         <h1 className="text-xl font-bold text-slate-900 sm:text-2xl">Produk & Margin</h1>
-        <OutletSelector />
+        <div className="flex items-center gap-2 print:hidden">
+          <OutletSelector />
+          <button onClick={() => window.print()} className="rounded-lg bg-sky-500 px-4 py-2 text-sm font-medium text-white hover:bg-sky-600">
+            Cetak
+          </button>
+        </div>
       </div>
+      <p className="mb-4 hidden print:block">
+        Periode: {new Date(from).toLocaleDateString('id-ID')} &ndash; {new Date(to).toLocaleDateString('id-ID')}
+        {' '}&middot; Dicetak {new Date().toLocaleString('id-ID')}
+      </p>
 
       {error && <div className="mb-4 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600">{error}</div>}
 
-      <div className="mb-6 flex flex-wrap items-end gap-2">
+      <div className="mb-6 flex flex-wrap items-end gap-2 print:hidden">
         <div>
           <label className="mb-1 block text-xs text-slate-500">Dari</label>
           <input type="date" value={from} onChange={(e) => setFrom(e.target.value)} className="rounded-lg border border-slate-300 px-3 py-2 outline-none focus:border-sky-500" />

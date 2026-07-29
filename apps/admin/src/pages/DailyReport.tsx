@@ -56,12 +56,21 @@ export default function DailyReport() {
     <Layout>
       <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
         <h1 className="text-xl font-bold text-slate-900 sm:text-2xl">Laporan Harian</h1>
-        <OutletSelector />
+        <div className="flex items-center gap-2 print:hidden">
+          <OutletSelector />
+          <button onClick={() => window.print()} className="rounded-lg bg-sky-500 px-4 py-2 text-sm font-medium text-white hover:bg-sky-600">
+            Cetak
+          </button>
+        </div>
       </div>
+      <p className="mb-4 hidden print:block">
+        Periode: {new Date(from).toLocaleDateString('id-ID')} &ndash; {new Date(to).toLocaleDateString('id-ID')}
+        {' '}&middot; Dicetak {new Date().toLocaleString('id-ID')}
+      </p>
 
       {error && <div className="mb-4 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600">{error}</div>}
 
-      <div className="mb-6 flex items-end gap-2">
+      <div className="mb-6 flex items-end gap-2 print:hidden">
         <div>
           <label className="mb-1 block text-xs text-slate-500">Dari</label>
           <input type="date" value={from} onChange={(e) => setFrom(e.target.value)} className="rounded-lg border border-slate-300 px-3 py-2 outline-none focus:border-sky-500" />

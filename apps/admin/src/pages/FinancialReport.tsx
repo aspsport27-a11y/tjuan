@@ -90,13 +90,24 @@ export default function FinancialReport() {
   return (
     <Layout>
       <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
-        <h1 className="text-xl font-bold text-slate-900 sm:text-2xl">Laporan Keuangan</h1>
-        {mode === 'outlet' && <OutletSelector />}
+        <h1 className="text-xl font-bold text-slate-900 sm:text-2xl">
+          Laporan Keuangan {mode === 'consolidated' ? '- Semua Outlet' : ''}
+        </h1>
+        <div className="flex items-center gap-2 print:hidden">
+          {mode === 'outlet' && <OutletSelector />}
+          <button onClick={() => window.print()} className="rounded-lg bg-sky-500 px-4 py-2 text-sm font-medium text-white hover:bg-sky-600">
+            Cetak
+          </button>
+        </div>
       </div>
+      <p className="mb-4 hidden print:block">
+        Periode: {new Date(from).toLocaleDateString('id-ID')} &ndash; {new Date(to).toLocaleDateString('id-ID')}
+        {' '}&middot; Dicetak {new Date().toLocaleString('id-ID')}
+      </p>
 
       {error && <div className="mb-4 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600">{error}</div>}
 
-      <div className="mb-6 flex flex-wrap items-end gap-3">
+      <div className="mb-6 flex flex-wrap items-end gap-3 print:hidden">
         {multiOutlet && (
           <div className="flex gap-2">
             <button

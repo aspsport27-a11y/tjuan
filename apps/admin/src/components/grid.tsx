@@ -111,7 +111,7 @@ export function GridToolbar<T>({
   children?: React.ReactNode;
 }) {
   return (
-    <div className="mb-3 flex flex-wrap items-center gap-2">
+    <div className="mb-3 flex flex-wrap items-center gap-2 print:hidden">
       <input
         value={grid.search}
         onChange={(e) => grid.setSearch(e.target.value)}
@@ -159,7 +159,7 @@ export function SortHeader<T>({
 export function GridPagination<T>({ grid }: { grid: GridState<T> }) {
   if (grid.pageCount <= 1) return null;
   return (
-    <div className="mt-3 flex items-center justify-between gap-2">
+    <div className="mt-3 flex items-center justify-between gap-2 print:hidden">
       <button
         onClick={() => grid.setPage(grid.page - 1)}
         disabled={grid.page <= 1}
