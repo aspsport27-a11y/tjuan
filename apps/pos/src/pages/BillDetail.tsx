@@ -100,6 +100,17 @@ export default function BillDetail() {
     }
   }
 
+  async function cancelBill() {
+    if (!order) return;
+    if (!window.confirm('Batalkan seluruh bill ini? Item yang masih aktif akan ikut dibatalkan dan stoknya dikembalikan.')) return;
+    try {
+      await api.post(`/orders/${order.order.id}/cancel`);
+      navigate('/');
+    } catch (err) {
+      if (err instanceof ApiError) setError(err.message);
+    }
+  }
+
   const orderCompleted = order?.order.status === 'completed';
 
   return (
@@ -216,6 +227,12 @@ export default function BillDetail() {
           {orderCompleted && (
             <button onClick={() => navigate('/')} className="w-full rounded-lg bg-slate-700 py-3 font-semibold text-white hover:bg-slate-600">
               Selesai -- Kembali
+            </button>
+          )}
+
+          {!orderCompleted && cart.length === 0 && hasPermission('order.cancel') && (
+            <button onClick={cancelBill} className="w-full rounded-lg bg-red-500/10 py-2.5 text-sm font-medium text-red-400 hover:bg-red-500/20">
+              Batalkan Bill
             </button>
           )}
         </div>
