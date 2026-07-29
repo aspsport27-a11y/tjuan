@@ -9,6 +9,7 @@ import Expenses from './pages/Expenses';
 import Procurement from './pages/Procurement';
 import Shifts from './pages/Shifts';
 import DailyReport from './pages/DailyReport';
+import ProductReport from './pages/ProductReport';
 import ChangePassword from './pages/ChangePassword';
 import RequireAuth from './components/RequireAuth';
 
@@ -85,6 +86,14 @@ export default function App() {
         element={
           <RequireAuth>
             <DailyReport />
+          </RequireAuth>
+        }
+      />
+      <Route
+        path="/product-report"
+        element={
+          <RequireAuth>
+            <ProductReport />
           </RequireAuth>
         }
       />

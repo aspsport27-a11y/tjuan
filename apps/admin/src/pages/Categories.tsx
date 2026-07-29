@@ -59,8 +59,8 @@ export default function Categories() {
 
   return (
     <Layout>
-      <div className="mb-6 flex items-center justify-between">
-        <h1 className="text-2xl font-bold text-slate-900">Kategori Menu</h1>
+      <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
+        <h1 className="text-xl font-bold text-slate-900 sm:text-2xl">Kategori Menu</h1>
         <OutletSelector />
       </div>
 
@@ -81,8 +81,8 @@ export default function Categories() {
       {loading ? (
         <p className="text-slate-500">Memuat...</p>
       ) : (
-        <div className="overflow-hidden rounded-xl border border-slate-200 bg-white">
-          <table className="w-full text-left text-sm">
+        <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white">
+          <table className="w-full min-w-[560px] text-left text-sm">
             <thead className="bg-slate-50 text-slate-500">
               <tr>
                 <th className="px-4 py-3">Nama</th>

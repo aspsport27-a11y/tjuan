@@ -168,11 +168,11 @@ export default function Home() {
     <div className="flex min-h-screen flex-col bg-slate-900 md:flex-row">
       {/* Menu */}
       <div className="flex-1 overflow-y-auto p-4">
-        <header className="mb-4 flex items-center justify-between">
+        <header className="mb-4 flex flex-wrap items-center justify-between gap-2">
           <div>
             <div className="text-sm text-slate-400">{user?.fullName} &middot; Shift #{shift.shift_number}</div>
           </div>
-          <div className="flex gap-2">
+          <div className="flex flex-wrap gap-2">
             <button onClick={() => setShowExpense(true)} className="rounded-lg bg-slate-800 px-3 py-2 text-xs text-slate-300 hover:bg-slate-700">
               Catat Pengeluaran
             </button>

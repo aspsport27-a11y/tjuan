@@ -54,8 +54,8 @@ export default function DailyReport() {
 
   return (
     <Layout>
-      <div className="mb-6 flex items-center justify-between">
-        <h1 className="text-2xl font-bold text-slate-900">Laporan Harian</h1>
+      <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
+        <h1 className="text-xl font-bold text-slate-900 sm:text-2xl">Laporan Harian</h1>
         <OutletSelector />
       </div>
 

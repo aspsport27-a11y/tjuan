@@ -62,8 +62,8 @@ export default function Procurement() {
 
   return (
     <Layout>
-      <div className="mb-6 flex items-center justify-between">
-        <h1 className="text-2xl font-bold text-slate-900">Pembelian</h1>
+      <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
+        <h1 className="text-xl font-bold text-slate-900 sm:text-2xl">Pembelian</h1>
         <OutletSelector />
       </div>
 
@@ -162,8 +162,8 @@ function PurchaseOrdersTab({ activeOutletId }: { activeOutletId: string | null }
       {loading ? (
         <p className="text-slate-500">Memuat...</p>
       ) : (
-        <div className="overflow-hidden rounded-xl border border-slate-200 bg-white">
-          <table className="w-full text-left text-sm">
+        <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white">
+          <table className="w-full min-w-[560px] text-left text-sm">
             <thead className="bg-slate-50 text-slate-500">
               <tr>
                 <th className="px-4 py-3">No. PO</th>
@@ -520,8 +520,8 @@ function SuppliersTab() {
       {loading ? (
         <p className="text-slate-500">Memuat...</p>
       ) : (
-        <div className="overflow-hidden rounded-xl border border-slate-200 bg-white">
-          <table className="w-full text-left text-sm">
+        <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white">
+          <table className="w-full min-w-[560px] text-left text-sm">
             <thead className="bg-slate-50 text-slate-500">
               <tr>
                 <th className="px-4 py-3">Nama</th>

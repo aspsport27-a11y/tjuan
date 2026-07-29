@@ -64,8 +64,8 @@ export default function Shifts() {
 
   return (
     <Layout>
-      <div className="mb-6 flex items-center justify-between">
-        <h1 className="text-2xl font-bold text-slate-900">Shift Kasir</h1>
+      <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
+        <h1 className="text-xl font-bold text-slate-900 sm:text-2xl">Shift Kasir</h1>
         <OutletSelector />
       </div>
 
@@ -74,8 +74,8 @@ export default function Shifts() {
       {loading ? (
         <p className="text-slate-500">Memuat...</p>
       ) : (
-        <div className="overflow-hidden rounded-xl border border-slate-200 bg-white">
-          <table className="w-full text-left text-sm">
+        <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white">
+          <table className="w-full min-w-[560px] text-left text-sm">
             <thead className="bg-slate-50 text-slate-500">
               <tr>
                 <th className="px-4 py-3">Shift</th>
@@ -123,7 +123,7 @@ export default function Shifts() {
 
       {detail && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-          <div className="w-full max-w-md rounded-2xl bg-white p-6">
+          <div className="max-h-[90vh] w-full max-w-md overflow-y-auto rounded-2xl bg-white p-6">
             <h3 className="mb-4 text-lg font-bold text-slate-900">Shift #{detail.shift.shift_number}</h3>
 
             <div className="mb-4 grid grid-cols-2 gap-3 text-sm">

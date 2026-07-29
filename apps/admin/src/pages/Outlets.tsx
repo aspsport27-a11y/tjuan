@@ -87,7 +87,7 @@ export default function Outlets() {
 
   return (
     <Layout>
-      <h1 className="mb-6 text-2xl font-bold text-slate-900">Outlet</h1>
+      <h1 className="mb-6 text-xl font-bold text-slate-900 sm:text-2xl">Outlet</h1>
 
       {error && <div className="mb-4 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600">{error}</div>}
 
@@ -128,8 +128,8 @@ export default function Outlets() {
       {loading ? (
         <p className="text-slate-500">Memuat...</p>
       ) : (
-        <div className="overflow-hidden rounded-xl border border-slate-200 bg-white">
-          <table className="w-full text-left text-sm">
+        <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white">
+          <table className="w-full min-w-[560px] text-left text-sm">
             <thead className="bg-slate-50 text-slate-500">
               <tr>
                 <th className="px-4 py-3">Kode</th>
@@ -211,7 +211,7 @@ function EditOutletModal({ outlet, onClose, onSaved }: { outlet: Outlet; onClose
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-      <div className="w-full max-w-sm rounded-2xl bg-white p-6">
+      <div className="max-h-[90vh] w-full max-w-sm overflow-y-auto rounded-2xl bg-white p-6">
         <h3 className="mb-1 text-lg font-bold text-slate-900">Edit Outlet</h3>
         <p className="mb-4 text-xs font-mono text-slate-400">{outlet.code}</p>
 

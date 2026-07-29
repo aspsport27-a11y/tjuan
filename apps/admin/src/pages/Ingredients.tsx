@@ -68,8 +68,8 @@ export default function Ingredients() {
 
   return (
     <Layout>
-      <div className="mb-6 flex items-center justify-between">
-        <h1 className="text-2xl font-bold text-slate-900">Bahan & Stok</h1>
+      <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
+        <h1 className="text-xl font-bold text-slate-900 sm:text-2xl">Bahan & Stok</h1>
         <OutletSelector />
       </div>
 
@@ -100,8 +100,8 @@ export default function Ingredients() {
       {loading ? (
         <p className="text-slate-500">Memuat...</p>
       ) : (
-        <div className="overflow-hidden rounded-xl border border-slate-200 bg-white">
-          <table className="w-full text-left text-sm">
+        <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white">
+          <table className="w-full min-w-[560px] text-left text-sm">
             <thead className="bg-slate-50 text-slate-500">
               <tr>
                 <th className="px-4 py-3">Nama</th>
@@ -283,7 +283,7 @@ function AdjustModal({ ingredient, onClose, onSaved }: { ingredient: Ingredient;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-      <div className="w-full max-w-sm rounded-2xl bg-white p-6">
+      <div className="max-h-[90vh] w-full max-w-sm overflow-y-auto rounded-2xl bg-white p-6">
         <h3 className="mb-1 text-lg font-bold text-slate-900">Sesuaikan Stok</h3>
         <p className="mb-4 text-xs text-slate-500">{ingredient.name} &middot; stok saat ini {Number(ingredient.current_stock)} {ingredient.unit}</p>
 
