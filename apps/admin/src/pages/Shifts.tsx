@@ -14,6 +14,12 @@ interface Shift {
   closing_cash_counted: string | null;
   expected_cash: string | null;
   cash_variance: string | null;
+  // Present on the list endpoint (running totals while a shift is open),
+  // absent on the detail endpoint which returns the raw shift row.
+  total_sales?: string;
+  cash_sales?: string;
+  order_count?: string;
+  total_expense?: string;
 }
 
 interface ShiftDetail {
@@ -74,15 +80,46 @@ export default function Shifts() {
       {loading ? (
         <p className="text-slate-500">Memuat...</p>
       ) : (
+        <>
+        <div className="mb-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
+          <div className="rounded-xl border border-slate-200 bg-white p-4">
+            <div className="text-xs text-slate-500">Total Penjualan</div>
+            <div className="mt-1 text-lg font-bold text-slate-900">
+              {formatRupiah(shifts.reduce((sum, s) => sum + Number(s.total_sales ?? 0), 0))}
+            </div>
+          </div>
+          <div className="rounded-xl border border-slate-200 bg-white p-4">
+            <div className="text-xs text-slate-500">Tunai</div>
+            <div className="mt-1 text-lg font-bold text-slate-900">
+              {formatRupiah(shifts.reduce((sum, s) => sum + Number(s.cash_sales ?? 0), 0))}
+            </div>
+          </div>
+          <div className="rounded-xl border border-slate-200 bg-white p-4">
+            <div className="text-xs text-slate-500">Total Order</div>
+            <div className="mt-1 text-lg font-bold text-slate-900">
+              {shifts.reduce((sum, s) => sum + Number(s.order_count ?? 0), 0)}
+            </div>
+          </div>
+          <div className="rounded-xl border border-slate-200 bg-white p-4">
+            <div className="text-xs text-slate-500">Total Selisih Kas</div>
+            <div className={`mt-1 text-lg font-bold ${shifts.reduce((sum, s) => sum + Number(s.cash_variance ?? 0), 0) === 0 ? 'text-emerald-600' : 'text-amber-600'}`}>
+              {formatRupiah(shifts.reduce((sum, s) => sum + Number(s.cash_variance ?? 0), 0))}
+            </div>
+          </div>
+        </div>
+
         <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white">
-          <table className="w-full min-w-[560px] text-left text-sm">
+          <table className="w-full min-w-[820px] text-left text-sm">
             <thead className="bg-slate-50 text-slate-500">
               <tr>
                 <th className="px-4 py-3">Shift</th>
                 <th className="px-4 py-3">Dibuka</th>
                 <th className="px-4 py-3">Ditutup</th>
-                <th className="px-4 py-3">Kas Awal</th>
-                <th className="px-4 py-3">Selisih</th>
+                <th className="px-4 py-3 text-right">Order</th>
+                <th className="px-4 py-3 text-right">Penjualan</th>
+                <th className="px-4 py-3 text-right">Tunai</th>
+                <th className="px-4 py-3 text-right">Kas Awal</th>
+                <th className="px-4 py-3 text-right">Selisih</th>
                 <th className="px-4 py-3">Status</th>
                 <th className="px-4 py-3"></th>
               </tr>
@@ -93,13 +130,16 @@ export default function Shifts() {
                   <td className="px-4 py-3 font-medium text-slate-900">#{s.shift_number}</td>
                   <td className="px-4 py-3 text-slate-600">{new Date(s.opened_at).toLocaleString('id-ID')}</td>
                   <td className="px-4 py-3 text-slate-600">{s.closed_at ? new Date(s.closed_at).toLocaleString('id-ID') : '-'}</td>
-                  <td className="px-4 py-3">{formatRupiah(Number(s.opening_cash))}</td>
-                  <td className="px-4 py-3">
+                  <td className="px-4 py-3 text-right text-slate-600">{Number(s.order_count ?? 0)}</td>
+                  <td className="px-4 py-3 text-right font-semibold text-slate-900">{formatRupiah(Number(s.total_sales ?? 0))}</td>
+                  <td className="px-4 py-3 text-right text-slate-600">{formatRupiah(Number(s.cash_sales ?? 0))}</td>
+                  <td className="px-4 py-3 text-right text-slate-600">{formatRupiah(Number(s.opening_cash))}</td>
+                  <td className="px-4 py-3 text-right">
                     {s.cash_variance != null ? (
                       <span className={Number(s.cash_variance) === 0 ? 'text-emerald-600' : 'text-amber-600'}>
                         {formatRupiah(Number(s.cash_variance))}
                       </span>
-                    ) : '-'}
+                    ) : <span className="text-slate-400">-</span>}
                   </td>
                   <td className="px-4 py-3">
                     <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${s.status === 'open' ? 'bg-sky-100 text-sky-700' : 'bg-slate-100 text-slate-500'}`}>
@@ -113,12 +153,13 @@ export default function Shifts() {
               ))}
               {shifts.length === 0 && (
                 <tr>
-                  <td colSpan={7} className="px-4 py-6 text-center text-slate-400">Belum ada shift</td>
+                  <td colSpan={10} className="px-4 py-6 text-center text-slate-400">Belum ada shift</td>
                 </tr>
               )}
             </tbody>
           </table>
         </div>
+        </>
       )}
 
       {detail && (
@@ -160,6 +201,12 @@ export default function Shifts() {
                         <td className="py-1 text-right font-medium text-slate-900">{formatRupiah(Number(s.total))}</td>
                       </tr>
                     ))}
+                    <tr className="border-t border-slate-200">
+                      <td className="py-1 font-semibold text-slate-900">Total</td>
+                      <td className="py-1 text-right font-bold text-slate-900">
+                        {formatRupiah(detail.salesByMethod.reduce((sum, s) => sum + Number(s.total), 0))}
+                      </td>
+                    </tr>
                   </tbody>
                 </table>
               )}

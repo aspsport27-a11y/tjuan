@@ -24,8 +24,35 @@ export default async function shiftsRoutes(fastify: FastifyInstance) {
   fastify.get('/shifts', { preHandler: requirePermission('shift.manage', 'report.view_business') }, async (request, reply) => {
     const outletId = resolveOutletId(request, reply);
     if (!outletId) return;
+    // Sales figures are aggregated per shift so the list answers "how much did
+    // this shift take?" without drilling into each one. For an open shift
+    // these are running totals.
     const { rows } = await pool.query(
-      `SELECT * FROM shifts WHERE outlet_id = $1 ORDER BY opened_at DESC LIMIT 50`,
+      `SELECT s.*,
+              COALESCE(p.total_sales, 0)  AS total_sales,
+              COALESCE(p.cash_sales, 0)   AS cash_sales,
+              COALESCE(p.payment_count, 0) AS payment_count,
+              COALESCE(o.order_count, 0)  AS order_count,
+              COALESCE(e.total_expense, 0) AS total_expense
+       FROM shifts s
+       LEFT JOIN (
+         SELECT shift_id,
+                SUM(amount)                                   AS total_sales,
+                SUM(amount) FILTER (WHERE method = 'cash')    AS cash_sales,
+                COUNT(*)                                      AS payment_count
+         FROM payments WHERE shift_id IS NOT NULL GROUP BY shift_id
+       ) p ON p.shift_id = s.id
+       LEFT JOIN (
+         SELECT shift_id, COUNT(*) AS order_count
+         FROM orders WHERE shift_id IS NOT NULL AND status = 'completed' GROUP BY shift_id
+       ) o ON o.shift_id = s.id
+       LEFT JOIN (
+         SELECT shift_id, SUM(amount) AS total_expense
+         FROM outlet_expenses WHERE shift_id IS NOT NULL AND source = 'cash_drawer' GROUP BY shift_id
+       ) e ON e.shift_id = s.id
+       WHERE s.outlet_id = $1
+       ORDER BY s.opened_at DESC
+       LIMIT 50`,
       [outletId],
     );
     return reply.send({ shifts: rows });
