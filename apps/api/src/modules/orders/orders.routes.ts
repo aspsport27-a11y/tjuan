@@ -103,9 +103,11 @@ export default async function ordersRoutes(fastify: FastifyInstance) {
   });
 
   fastify.get('/orders/:id', { preHandler: requirePermission('order.create', 'order.update', 'report.view_business') }, async (request, reply) => {
+    const outletId = resolveOutletId(request, reply);
+    if (!outletId) return;
     const { id } = request.params as { id: string };
 
-    const orderRes = await pool.query(`SELECT * FROM orders WHERE id = $1`, [id]);
+    const orderRes = await pool.query(`SELECT * FROM orders WHERE id = $1 AND outlet_id = $2`, [id, outletId]);
     if (orderRes.rows.length === 0) return reply.code(404).send({ error: 'not_found' });
 
     const itemsRes = await pool.query(
@@ -217,6 +219,8 @@ export default async function ordersRoutes(fastify: FastifyInstance) {
 
   // Cancel a single line item and restock whatever it had deducted.
   fastify.post('/order-items/:itemId/cancel', { preHandler: requirePermission('order.cancel') }, async (request, reply) => {
+    const outletId = resolveOutletId(request, reply);
+    if (!outletId) return;
     const { itemId } = request.params as { itemId: string };
 
     const client = await pool.connect();
@@ -226,8 +230,8 @@ export default async function ordersRoutes(fastify: FastifyInstance) {
       const itemRes = await client.query(
         `SELECT oi.id, oi.order_id, oi.status, o.outlet_id
          FROM order_items oi JOIN orders o ON o.id = oi.order_id
-         WHERE oi.id = $1 FOR UPDATE`,
-        [itemId],
+         WHERE oi.id = $1 AND o.outlet_id = $2 FOR UPDATE`,
+        [itemId, outletId],
       );
       if (itemRes.rows.length === 0) {
         await client.query('ROLLBACK');
@@ -324,11 +328,19 @@ export default async function ordersRoutes(fastify: FastifyInstance) {
   });
 
   fastify.post('/orders/:id/cancel', { preHandler: requirePermission('order.cancel') }, async (request, reply) => {
+    const outletId = resolveOutletId(request, reply);
+    if (!outletId) return;
     const { id } = request.params as { id: string };
 
     const client = await pool.connect();
     try {
       await client.query('BEGIN');
+
+      const ownedOrder = await client.query(`SELECT id FROM orders WHERE id = $1 AND outlet_id = $2`, [id, outletId]);
+      if (ownedOrder.rows.length === 0) {
+        await client.query('ROLLBACK');
+        return reply.code(404).send({ error: 'not_found' });
+      }
 
       const items = await client.query(`SELECT id FROM order_items WHERE order_id = $1 AND status = 'active'`, [id]);
       for (const item of items.rows) {

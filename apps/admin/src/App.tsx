@@ -4,6 +4,7 @@ import Categories from './pages/Categories';
 import MenuItems from './pages/MenuItems';
 import Ingredients from './pages/Ingredients';
 import Users from './pages/Users';
+import Outlets from './pages/Outlets';
 import ChangePassword from './pages/ChangePassword';
 import RequireAuth from './components/RequireAuth';
 
@@ -40,6 +41,14 @@ export default function App() {
         element={
           <RequireAuth>
             <Users />
+          </RequireAuth>
+        }
+      />
+      <Route
+        path="/outlets"
+        element={
+          <RequireAuth>
+            <Outlets />
           </RequireAuth>
         }
       />

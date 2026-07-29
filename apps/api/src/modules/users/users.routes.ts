@@ -61,9 +61,14 @@ export default async function usersRoutes(fastify: FastifyInstance) {
   });
 
   fastify.put('/users/:id', { preHandler: requirePermission('user.manage') }, async (request, reply) => {
+    const outletId = resolveOutletId(request, reply);
+    if (!outletId) return;
     const { id } = request.params as { id: string };
     const parsed = updateUserInput.safeParse(request.body);
     if (!parsed.success) return reply.code(400).send({ error: 'invalid_request', issues: parsed.error.flatten() });
+
+    const owned = await pool.query(`SELECT id FROM users WHERE id = $1 AND home_outlet_id = $2`, [id, outletId]);
+    if (owned.rows.length === 0) return reply.code(404).send({ error: 'not_found' });
 
     await updateUserProfile(id, parsed.data);
     if (parsed.data.roleCodes) {
@@ -74,9 +79,14 @@ export default async function usersRoutes(fastify: FastifyInstance) {
 
   // Admin-driven reset: no current-password check, unlike /auth/change-password.
   fastify.post('/users/:id/reset-password', { preHandler: requirePermission('user.manage') }, async (request, reply) => {
+    const outletId = resolveOutletId(request, reply);
+    if (!outletId) return;
     const { id } = request.params as { id: string };
     const parsed = resetPasswordInput.safeParse(request.body);
     if (!parsed.success) return reply.code(400).send({ error: 'invalid_request', issues: parsed.error.flatten() });
+
+    const owned = await pool.query(`SELECT id FROM users WHERE id = $1 AND home_outlet_id = $2`, [id, outletId]);
+    if (owned.rows.length === 0) return reply.code(404).send({ error: 'not_found' });
 
     await adminResetPassword(id, parsed.data.newPassword);
     return reply.send({ reset: true });

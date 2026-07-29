@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { api, ApiError } from '../api/client';
 import { useAuthStore } from '../store/auth';
+import { useOutletStore } from '../store/outlet';
 
 interface LoginResponse {
   token: string;
@@ -22,6 +23,7 @@ export default function Login() {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const setSession = useAuthStore((s) => s.setSession);
+  const initFromUser = useOutletStore((s) => s.initFromUser);
   const navigate = useNavigate();
 
   async function handleSubmit(e: React.FormEvent) {
@@ -31,6 +33,7 @@ export default function Login() {
     try {
       const res = await api.post<LoginResponse>('/auth/login', { username, password });
       setSession(res.token, res.user);
+      initFromUser(res.user);
       navigate('/categories');
     } catch (err) {
       if (err instanceof ApiError) setError(err.message || 'Username atau password salah');

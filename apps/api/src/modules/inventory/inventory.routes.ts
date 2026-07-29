@@ -70,7 +70,7 @@ export default async function inventoryRoutes(fastify: FastifyInstance) {
     try {
       await client.query('BEGIN');
 
-      const current = await client.query(`SELECT current_stock FROM ingredients WHERE id = $1 FOR UPDATE`, [id]);
+      const current = await client.query(`SELECT current_stock FROM ingredients WHERE id = $1 AND outlet_id = $2 FOR UPDATE`, [id, outletId]);
       if (current.rows.length === 0) {
         await client.query('ROLLBACK');
         return reply.code(404).send({ error: 'not_found' });
@@ -103,17 +103,24 @@ export default async function inventoryRoutes(fastify: FastifyInstance) {
   // --- Recipes (BOM) ---------------------------------------------------------
 
   fastify.get('/menu-items/:id/recipe', { preHandler: requirePermission('inventory.view', 'menu.view') }, async (request, reply) => {
+    const outletId = resolveOutletId(request, reply);
+    if (!outletId) return;
     const { id } = request.params as { id: string };
     const { rows } = await pool.query(
       `SELECT ri.id, ri.ingredient_id, i.name, i.unit, ri.quantity
-       FROM recipe_items ri JOIN ingredients i ON i.id = ri.ingredient_id
-       WHERE ri.menu_item_id = $1 ORDER BY i.name`,
-      [id],
+       FROM recipe_items ri
+       JOIN ingredients i ON i.id = ri.ingredient_id
+       JOIN menu_items mi ON mi.id = ri.menu_item_id
+       WHERE ri.menu_item_id = $1 AND mi.outlet_id = $2
+       ORDER BY i.name`,
+      [id, outletId],
     );
     return reply.send({ recipe: rows });
   });
 
   fastify.put('/menu-items/:id/recipe', { preHandler: requirePermission('inventory.manage', 'menu.manage') }, async (request, reply) => {
+    const outletId = resolveOutletId(request, reply);
+    if (!outletId) return;
     const { id } = request.params as { id: string };
     const parsed = z.array(recipeItemInput).safeParse(request.body);
     if (!parsed.success) return reply.code(400).send({ error: 'invalid_request', issues: parsed.error.flatten() });
@@ -121,6 +128,26 @@ export default async function inventoryRoutes(fastify: FastifyInstance) {
     const client = await pool.connect();
     try {
       await client.query('BEGIN');
+
+      const menuItemCheck = await client.query(`SELECT id FROM menu_items WHERE id = $1 AND outlet_id = $2`, [id, outletId]);
+      if (menuItemCheck.rows.length === 0) {
+        await client.query('ROLLBACK');
+        return reply.code(404).send({ error: 'not_found' });
+      }
+
+      // Every ingredient referenced must belong to the same outlet as the menu item.
+      const ingredientIds = parsed.data.map((item) => item.ingredientId);
+      if (ingredientIds.length > 0) {
+        const ownedCheck = await client.query(
+          `SELECT id FROM ingredients WHERE id = ANY($1::uuid[]) AND outlet_id = $2`,
+          [ingredientIds, outletId],
+        );
+        if (ownedCheck.rows.length !== new Set(ingredientIds).size) {
+          await client.query('ROLLBACK');
+          return reply.code(400).send({ error: 'invalid_ingredient', message: 'Salah satu bahan tidak ditemukan di outlet ini' });
+        }
+      }
+
       await client.query(`DELETE FROM recipe_items WHERE menu_item_id = $1`, [id]);
       for (const item of parsed.data) {
         await client.query(
@@ -141,12 +168,16 @@ export default async function inventoryRoutes(fastify: FastifyInstance) {
   // HPP helper: cost of one unit of a menu item based on its current recipe
   // and ingredient cost_per_unit.
   fastify.get('/menu-items/:id/cost', { preHandler: requirePermission('report.view_management') }, async (request, reply) => {
+    const outletId = resolveOutletId(request, reply);
+    if (!outletId) return;
     const { id } = request.params as { id: string };
     const { rows } = await pool.query(
       `SELECT COALESCE(SUM(ri.quantity * i.cost_per_unit), 0) AS cost
-       FROM recipe_items ri JOIN ingredients i ON i.id = ri.ingredient_id
-       WHERE ri.menu_item_id = $1`,
-      [id],
+       FROM recipe_items ri
+       JOIN ingredients i ON i.id = ri.ingredient_id
+       JOIN menu_items mi ON mi.id = ri.menu_item_id
+       WHERE ri.menu_item_id = $1 AND mi.outlet_id = $2`,
+      [id, outletId],
     );
     return reply.send({ menuItemId: id, estimatedCost: Number(rows[0].cost) });
   });

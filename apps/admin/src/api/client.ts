@@ -1,4 +1,5 @@
 import { useAuthStore } from '../store/auth';
+import { useOutletStore } from '../store/outlet';
 
 const BASE_URL = import.meta.env.VITE_API_BASE_URL;
 
@@ -11,8 +12,19 @@ export class ApiError extends Error {
   }
 }
 
-async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
+// Every data-scoped endpoint reads its outlet from ?outlet_id= (see
+// resolveOutletId on the API side); appending it here once means individual
+// pages never have to remember to do it themselves.
+function withOutlet(path: string): string {
+  const activeOutletId = useOutletStore.getState().activeOutletId;
+  if (!activeOutletId) return path;
+  const separator = path.includes('?') ? '&' : '?';
+  return `${path}${separator}outlet_id=${encodeURIComponent(activeOutletId)}`;
+}
+
+async function request<T>(rawPath: string, options: RequestInit = {}): Promise<T> {
   const token = useAuthStore.getState().token;
+  const path = withOutlet(rawPath);
 
   const res = await fetch(`${BASE_URL}${path}`, {
     ...options,

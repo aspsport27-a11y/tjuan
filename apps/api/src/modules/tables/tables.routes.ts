@@ -61,6 +61,12 @@ export default async function tablesRoutes(fastify: FastifyInstance) {
     try {
       await client.query('BEGIN');
 
+      const tableCheck = await client.query(`SELECT id FROM dining_tables WHERE id = $1 AND outlet_id = $2`, [id, outletId]);
+      if (tableCheck.rows.length === 0) {
+        await client.query('ROLLBACK');
+        return reply.code(404).send({ error: 'not_found' });
+      }
+
       const existing = await client.query(
         `SELECT id FROM table_sessions WHERE table_id = $1 AND status = 'open'`,
         [id],
@@ -91,11 +97,19 @@ export default async function tablesRoutes(fastify: FastifyInstance) {
   // Close a session: only allowed once all its orders are completed or
   // cancelled (i.e. nothing left unpaid).
   fastify.post('/table-sessions/:id/close', { preHandler: requirePermission('order.close') }, async (request, reply) => {
+    const outletId = resolveOutletId(request, reply);
+    if (!outletId) return;
     const { id } = request.params as { id: string };
 
     const client = await pool.connect();
     try {
       await client.query('BEGIN');
+
+      const sessionCheck = await client.query(`SELECT id FROM table_sessions WHERE id = $1 AND outlet_id = $2`, [id, outletId]);
+      if (sessionCheck.rows.length === 0) {
+        await client.query('ROLLBACK');
+        return reply.code(404).send({ error: 'not_found' });
+      }
 
       const openOrders = await client.query(
         `SELECT id FROM orders WHERE table_session_id = $1 AND status = 'open'`,

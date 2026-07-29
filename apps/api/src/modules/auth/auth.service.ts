@@ -22,12 +22,6 @@ export async function findUserForLogin(username: string): Promise<LoadedUser | n
   if (rows.length === 0) return null;
   const u = rows[0];
 
-  const { rows: outletRows } = await pool.query(
-    `SELECT outlet_id FROM user_outlet_access WHERE user_id = $1`,
-    [u.id],
-  );
-  const outletIds = Array.from(new Set([u.home_outlet_id, ...outletRows.map((r) => r.outlet_id)]));
-
   const { rows: roleRows } = await pool.query(
     `SELECT r.code FROM roles r
      JOIN user_roles ur ON ur.role_id = r.id
@@ -35,6 +29,20 @@ export async function findUserForLogin(username: string): Promise<LoadedUser | n
     [u.id],
   );
   const roles = roleRows.map((r) => r.code);
+
+  // Owners operate across every outlet (multi-outlet oversight); everyone
+  // else is scoped to their home outlet plus any explicit grants.
+  let outletIds: string[];
+  if (roles.includes('owner')) {
+    const { rows: allOutlets } = await pool.query(`SELECT id FROM outlets WHERE is_active = true`);
+    outletIds = allOutlets.map((r) => r.id);
+  } else {
+    const { rows: outletRows } = await pool.query(
+      `SELECT outlet_id FROM user_outlet_access WHERE user_id = $1`,
+      [u.id],
+    );
+    outletIds = Array.from(new Set([u.home_outlet_id, ...outletRows.map((r) => r.outlet_id)]));
+  }
 
   const { rows: permRows } = await pool.query(
     `SELECT DISTINCT p.code FROM permissions p

@@ -1,17 +1,33 @@
+import { useEffect } from 'react';
 import type { ReactNode } from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../store/auth';
+import { useOutletStore } from '../store/outlet';
+import { api, ApiError } from '../api/client';
 
 const navItems = [
   { to: '/categories', label: 'Kategori', permission: 'menu.view' },
   { to: '/menu-items', label: 'Menu', permission: 'menu.view' },
   { to: '/ingredients', label: 'Bahan & Stok', permission: 'inventory.view' },
   { to: '/users', label: 'Pengguna', permission: 'user.manage' },
+  { to: '/outlets', label: 'Outlet', permission: 'outlet.manage' },
 ];
 
 export default function Layout({ children }: { children: ReactNode }) {
   const { user, clearSession, hasPermission } = useAuthStore();
+  const { activeOutletId, outlets, setActiveOutletId, setOutlets, clear: clearOutletStore } = useOutletStore();
   const navigate = useNavigate();
+
+  useEffect(() => {
+    if (!user || user.outletIds.length <= 1) return;
+    api
+      .get<{ outlets: typeof outlets }>('/outlets')
+      .then((res) => setOutlets(res.outlets))
+      .catch((err) => {
+        if (err instanceof ApiError) console.error(err.message);
+      });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.sub]);
 
   return (
     <div className="flex min-h-screen bg-slate-100">
@@ -20,6 +36,25 @@ export default function Layout({ children }: { children: ReactNode }) {
           <div className="text-lg font-bold">F&B Admin</div>
           <div className="mt-1 text-xs text-slate-400">{user?.fullName}</div>
         </div>
+
+        {outlets.length > 1 && (
+          <div className="px-3 pb-3">
+            <label className="mb-1 block text-xs text-slate-500">Outlet aktif</label>
+            <select
+              value={activeOutletId ?? ''}
+              onChange={(e) => {
+                setActiveOutletId(e.target.value);
+                window.location.reload();
+              }}
+              className="w-full rounded-lg border border-slate-700 bg-slate-800 px-2 py-2 text-sm text-white outline-none"
+            >
+              {outlets.map((o) => (
+                <option key={o.id} value={o.id}>{o.name}</option>
+              ))}
+            </select>
+          </div>
+        )}
+
         <nav className="flex-1 space-y-1 px-3">
           {navItems
             .filter((item) => hasPermission(item.permission))
@@ -47,6 +82,7 @@ export default function Layout({ children }: { children: ReactNode }) {
           <button
             onClick={() => {
               clearSession();
+              clearOutletStore();
               navigate('/login');
             }}
             className="w-full rounded-lg bg-slate-800 px-3 py-2 text-left text-sm text-slate-300 hover:bg-slate-700"
