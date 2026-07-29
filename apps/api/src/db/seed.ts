@@ -9,11 +9,19 @@ async function seed() {
     await client.query('BEGIN');
 
     // --- Outlet -----------------------------------------------------------
+    // DO NOTHING, not DO UPDATE: seed is re-run on every deploy to register
+    // new permission codes, and it must never clobber an outlet the user has
+    // since renamed in Admin (it did exactly that once).
     const outletRes = await client.query<{ id: string }>(
-      `INSERT INTO outlets (code, name)
-       VALUES ($1, $2)
-       ON CONFLICT (code) DO UPDATE SET name = EXCLUDED.name
-       RETURNING id`,
+      `WITH ins AS (
+         INSERT INTO outlets (code, name) VALUES ($1, $2)
+         ON CONFLICT (code) DO NOTHING
+         RETURNING id
+       )
+       SELECT id FROM ins
+       UNION ALL
+       SELECT id FROM outlets WHERE code = $1
+       LIMIT 1`,
       [env.SEED_OUTLET_CODE, env.SEED_OUTLET_NAME],
     );
     const outletId = outletRes.rows[0].id;
@@ -57,11 +65,19 @@ async function seed() {
 
     // --- Admin user ----------------------------------------------------------
     const passwordHash = await bcrypt.hash(env.SEED_ADMIN_PASSWORD, 10);
+    // Same reasoning as the outlet above: never overwrite an existing admin's
+    // details (full_name, and definitely not their password) on re-seed.
     const userRes = await client.query<{ id: string }>(
-      `INSERT INTO users (home_outlet_id, username, full_name, password_hash)
-       VALUES ($1, $2, $3, $4)
-       ON CONFLICT (username) DO UPDATE SET full_name = EXCLUDED.full_name
-       RETURNING id`,
+      `WITH ins AS (
+         INSERT INTO users (home_outlet_id, username, full_name, password_hash)
+         VALUES ($1, $2, $3, $4)
+         ON CONFLICT (username) DO NOTHING
+         RETURNING id
+       )
+       SELECT id FROM ins
+       UNION ALL
+       SELECT id FROM users WHERE username = $2
+       LIMIT 1`,
       [outletId, env.SEED_ADMIN_USERNAME, env.SEED_ADMIN_FULL_NAME, passwordHash],
     );
     const userId = userRes.rows[0].id;

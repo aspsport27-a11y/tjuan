@@ -6,6 +6,7 @@ import Ingredients from './pages/Ingredients';
 import Users from './pages/Users';
 import Outlets from './pages/Outlets';
 import Expenses from './pages/Expenses';
+import Procurement from './pages/Procurement';
 import Shifts from './pages/Shifts';
 import DailyReport from './pages/DailyReport';
 import ChangePassword from './pages/ChangePassword';
@@ -52,6 +53,14 @@ export default function App() {
         element={
           <RequireAuth>
             <Outlets />
+          </RequireAuth>
+        }
+      />
+      <Route
+        path="/procurement"
+        element={
+          <RequireAuth>
+            <Procurement />
           </RequireAuth>
         }
       />

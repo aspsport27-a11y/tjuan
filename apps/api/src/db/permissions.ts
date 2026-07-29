@@ -29,6 +29,9 @@ export const PERMISSIONS = [
   // Expenses
   { code: 'expense.manage', module: 'order', description: 'Catat pengeluaran kas outlet' },
 
+  // Procurement
+  { code: 'procurement.manage', module: 'inventory', description: 'Kelola supplier & pembelian bahan' },
+
   // Reports
   { code: 'report.view_business', module: 'report', description: 'Lihat laporan bisnis (omzet, produk terlaris)' },
   { code: 'report.view_management', module: 'report', description: 'Lihat laporan manajemen (HPP, margin, biaya)' },
@@ -58,6 +61,7 @@ export const DEFAULT_ROLES: Record<string, { name: string; description: string; 
       'payment.create',
       'shift.manage',
       'expense.manage',
+      'procurement.manage',
       'report.view_business', 'report.view_management',
     ],
   },
@@ -76,6 +80,6 @@ export const DEFAULT_ROLES: Record<string, { name: string; description: string; 
   inventory_staff: {
     name: 'Staf Gudang',
     description: 'Mengelola stok bahan baku',
-    permissions: ['menu.view', 'inventory.view', 'inventory.manage'],
+    permissions: ['menu.view', 'inventory.view', 'inventory.manage', 'procurement.manage'],
   },
 };

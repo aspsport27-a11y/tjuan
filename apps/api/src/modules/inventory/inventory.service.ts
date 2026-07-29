@@ -1,5 +1,55 @@
 import type { PoolClient } from 'pg';
 
+export type StockMovementType = 'purchase' | 'sale_deduction' | 'adjustment' | 'waste';
+
+/**
+ * Apply a single stock movement: move current_stock and write the matching
+ * ledger row (and, for purchases, refresh cost_per_unit for HPP). Quantity
+ * is signed -- positive adds stock, negative removes it.
+ *
+ * Callers own their own validation (sufficiency checks, ownership checks)
+ * and must run inside a transaction; this only does the bookkeeping, which
+ * is the part that was previously duplicated between manual adjustment,
+ * sale deduction, and now PO receiving.
+ */
+export async function applyStockMovement(
+  client: PoolClient,
+  params: {
+    outletId: string;
+    ingredientId: string;
+    type: StockMovementType;
+    quantity: number; // signed
+    unitCost?: number | null;
+    referenceType?: string | null;
+    referenceId?: string | null;
+    notes?: string | null;
+    userId: string | null;
+  },
+): Promise<void> {
+  const updatesCost = params.type === 'purchase' && params.unitCost != null;
+  await client.query(
+    `UPDATE ingredients SET current_stock = current_stock + $2${updatesCost ? ', cost_per_unit = $3' : ''} WHERE id = $1`,
+    updatesCost ? [params.ingredientId, params.quantity, params.unitCost] : [params.ingredientId, params.quantity],
+  );
+
+  await client.query(
+    `INSERT INTO inventory_transactions
+       (outlet_id, ingredient_id, type, quantity, unit_cost, reference_type, reference_id, notes, created_by)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
+    [
+      params.outletId,
+      params.ingredientId,
+      params.type,
+      params.quantity,
+      params.unitCost ?? null,
+      params.referenceType ?? 'manual',
+      params.referenceId ?? null,
+      params.notes ?? null,
+      params.userId,
+    ],
+  );
+}
+
 export class InsufficientStockError extends Error {
   constructor(public shortages: { ingredientId: string; name: string; required: number; available: number; unit: string }[]) {
     super('Stok bahan tidak cukup');

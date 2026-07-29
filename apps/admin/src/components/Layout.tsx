@@ -7,6 +7,7 @@ const navItems = [
   { to: '/categories', label: 'Kategori', permission: 'menu.view' },
   { to: '/menu-items', label: 'Menu', permission: 'menu.view' },
   { to: '/ingredients', label: 'Bahan & Stok', permission: 'inventory.view' },
+  { to: '/procurement', label: 'Pembelian', permission: 'procurement.manage' },
   { to: '/shifts', label: 'Shift Kasir', permission: 'shift.manage' },
   { to: '/expenses', label: 'Pengeluaran', permission: 'expense.manage' },
   { to: '/daily-report', label: 'Laporan Harian', permission: 'report.view_business' },
