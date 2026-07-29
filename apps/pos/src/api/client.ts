@@ -17,7 +17,10 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
   const res = await fetch(`${BASE_URL}${path}`, {
     ...options,
     headers: {
-      'Content-Type': 'application/json',
+      // Only declare a JSON body when one is actually being sent -- Fastify's
+      // JSON parser rejects a request with this header but an empty body
+      // (e.g. POST /order-items/:id/cancel), even though no body was intended.
+      ...(options.body ? { 'Content-Type': 'application/json' } : {}),
       ...(token ? { Authorization: `Bearer ${token}` } : {}),
       ...options.headers,
     },

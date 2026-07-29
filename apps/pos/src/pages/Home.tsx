@@ -38,6 +38,7 @@ export default function Home() {
   const [customerLabel, setCustomerLabel] = useState('');
   const [cart, setCart] = useState<CartLine[]>([]);
   const [error, setError] = useState<string | null>(null);
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [pendingPayment, setPendingPayment] = useState<{ orderId: string; remainingDue: number } | null>(null);
 
@@ -102,14 +103,21 @@ export default function Home() {
   }
 
   async function saveBill() {
-    if (cart.length === 0) return;
+    if (cart.length === 0 || submitting) return;
     setSubmitting(true);
     setError(null);
+    setSuccessMessage(null);
     try {
       const items = cart.map((l) => ({ menuItemId: l.menuItemId, quantity: l.quantity, modifierIds: [] }));
-      await api.post('/orders', { orderType, customerLabel: customerLabel.trim() || undefined, items });
+      const res = await api.post<{ order: { order_number: string } }>('/orders', {
+        orderType,
+        customerLabel: customerLabel.trim() || undefined,
+        items,
+      });
       resetCart();
       await loadOpenBills();
+      setSuccessMessage(`Bill #${res.order.order_number} tersimpan sbg bill terbuka.`);
+      setTimeout(() => setSuccessMessage(null), 4000);
     } catch (err) {
       handleOrderError(err);
     } finally {
@@ -118,9 +126,10 @@ export default function Home() {
   }
 
   async function payNow() {
-    if (cart.length === 0) return;
+    if (cart.length === 0 || submitting) return;
     setSubmitting(true);
     setError(null);
+    setSuccessMessage(null);
     try {
       const items = cart.map((l) => ({ menuItemId: l.menuItemId, quantity: l.quantity, modifierIds: [] }));
       const res = await api.post<{ order: { id: string; grand_total?: number } }>('/orders', {
@@ -177,6 +186,7 @@ export default function Home() {
         </header>
 
         {error && <div className="mb-4 rounded-lg bg-red-500/10 px-3 py-2 text-sm text-red-400">{error}</div>}
+        {successMessage && <div className="mb-4 rounded-lg bg-emerald-500/10 px-3 py-2 text-sm text-emerald-400">{successMessage}</div>}
 
         {openBills.length > 0 && (
           <div className="mb-4">
