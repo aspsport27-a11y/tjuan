@@ -24,12 +24,20 @@ export default function Layout({ children }: { children: ReactNode }) {
   const navigate = useNavigate();
   const location = useLocation();
   const [drawerOpen, setDrawerOpen] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
 
-  // Close the mobile drawer whenever navigation happens, otherwise it stays
-  // covering the page the user just navigated to.
+  // Any navigation closes both overlays, otherwise they stay covering the
+  // page the user just landed on.
   useEffect(() => {
     setDrawerOpen(false);
+    setMenuOpen(false);
   }, [location.pathname]);
+
+  function logout() {
+    clearSession();
+    clearOutletStore();
+    navigate('/login');
+  }
 
   const linkClass = ({ isActive }: { isActive: boolean }) =>
     `block rounded-lg px-3 py-2.5 text-sm font-medium ${isActive ? 'bg-sky-500 text-white' : 'text-slate-300 hover:bg-slate-800'}`;
@@ -38,10 +46,8 @@ export default function Layout({ children }: { children: ReactNode }) {
     <>
       <div className="px-5 py-6">
         <div className="text-lg font-bold">F&B Admin</div>
-        <div className="mt-1 text-xs text-slate-400">{user?.fullName}</div>
       </div>
-
-      <nav className="flex-1 space-y-1 overflow-y-auto px-3">
+      <nav className="flex-1 space-y-1 overflow-y-auto px-3 pb-4">
         {navItems
           .filter((item) => hasPermission(item.permission))
           .map((item) => (
@@ -50,22 +56,6 @@ export default function Layout({ children }: { children: ReactNode }) {
             </NavLink>
           ))}
       </nav>
-
-      <div className="space-y-1 p-3">
-        <NavLink to="/change-password" className={linkClass}>
-          Ganti Password
-        </NavLink>
-        <button
-          onClick={() => {
-            clearSession();
-            clearOutletStore();
-            navigate('/login');
-          }}
-          className="w-full rounded-lg bg-slate-800 px-3 py-2.5 text-left text-sm text-slate-300 hover:bg-slate-700"
-        >
-          Keluar
-        </button>
-      </div>
     </>
   );
 
@@ -83,12 +73,11 @@ export default function Layout({ children }: { children: ReactNode }) {
       )}
 
       <div className="flex min-w-0 flex-1 flex-col">
-        {/* Mobile top bar with the hamburger */}
-        <header className="flex items-center gap-3 border-b border-slate-200 bg-white px-4 py-3 md:hidden">
+        <header className="flex items-center gap-3 border-b border-slate-200 bg-white px-4 py-2.5">
           <button
             onClick={() => setDrawerOpen(true)}
             aria-label="Buka menu"
-            className="rounded-lg p-2 text-slate-600 hover:bg-slate-100"
+            className="rounded-lg p-2 text-slate-600 hover:bg-slate-100 md:hidden"
           >
             <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
               <line x1="3" y1="6" x2="21" y2="6" />
@@ -96,7 +85,51 @@ export default function Layout({ children }: { children: ReactNode }) {
               <line x1="3" y1="18" x2="21" y2="18" />
             </svg>
           </button>
-          <span className="font-bold text-slate-900">F&B Admin</span>
+          <span className="font-bold text-slate-900 md:hidden">F&B Admin</span>
+
+          <div className="relative ml-auto">
+            <button
+              onClick={() => setMenuOpen((v) => !v)}
+              className="flex items-center gap-2 rounded-lg px-2 py-1.5 text-sm text-slate-700 hover:bg-slate-100"
+            >
+              <span className="flex h-8 w-8 items-center justify-center rounded-full bg-sky-500 text-xs font-bold text-white">
+                {(user?.fullName ?? '?').slice(0, 1).toUpperCase()}
+              </span>
+              <span className="hidden max-w-[10rem] truncate font-medium sm:inline">{user?.fullName}</span>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <polyline points="6 9 12 15 18 9" />
+              </svg>
+            </button>
+
+            {menuOpen && (
+              <>
+                {/* Click-anywhere-else to dismiss */}
+                <div className="fixed inset-0 z-40" onClick={() => setMenuOpen(false)} />
+                <div className="absolute right-0 z-50 mt-1 w-56 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-lg">
+                  <div className="border-b border-slate-100 px-4 py-3">
+                    <div className="truncate text-sm font-semibold text-slate-900">{user?.fullName}</div>
+                    <div className="truncate text-xs text-slate-500">
+                      {user?.username}
+                      {user?.roles?.length ? ` · ${user.roles.join(', ')}` : ''}
+                    </div>
+                  </div>
+                  <NavLink
+                    to="/change-password"
+                    onClick={() => setMenuOpen(false)}
+                    className="block px-4 py-2.5 text-sm text-slate-700 hover:bg-slate-50"
+                  >
+                    Ganti Password
+                  </NavLink>
+                  <button
+                    onClick={logout}
+                    className="block w-full px-4 py-2.5 text-left text-sm text-red-600 hover:bg-red-50"
+                  >
+                    Keluar
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
         </header>
 
         <main className="min-w-0 flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8">{children}</main>
