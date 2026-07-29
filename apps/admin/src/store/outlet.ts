@@ -35,7 +35,12 @@ export const useOutletStore = create<OutletState>((set) => ({
   setOutlets: (outlets) => set({ outlets }),
   initFromUser: (user) => {
     const persisted = localStorage.getItem(STORAGE_KEY);
-    const activeOutletId = persisted && user.outletIds.includes(persisted) ? persisted : user.homeOutletId;
+    // Never fall back to homeOutletId blindly -- if it's not actually in
+    // outletIds (e.g. it was deactivated), that would send every request
+    // an outlet_id the server rejects. Fall back to the first outlet the
+    // user actually has access to instead.
+    const fallback = user.outletIds.includes(user.homeOutletId) ? user.homeOutletId : (user.outletIds[0] ?? user.homeOutletId);
+    const activeOutletId = persisted && user.outletIds.includes(persisted) ? persisted : fallback;
     localStorage.setItem(STORAGE_KEY, activeOutletId);
     set({ activeOutletId });
   },

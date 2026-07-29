@@ -30,11 +30,14 @@ export async function findUserForLogin(username: string): Promise<LoadedUser | n
   );
   const roles = roleRows.map((r) => r.code);
 
-  // Owners operate across every outlet (multi-outlet oversight); everyone
-  // else is scoped to their home outlet plus any explicit grants.
+  // Owners operate across every outlet (multi-outlet oversight), including
+  // inactive ones -- they still need to be able to see/reactivate a paused
+  // outlet from Admin, and excluding it here would lock the owner out of
+  // their own home outlet the moment it's deactivated. Everyone else is
+  // scoped to their home outlet plus any explicit grants.
   let outletIds: string[];
   if (roles.includes('owner')) {
-    const { rows: allOutlets } = await pool.query(`SELECT id FROM outlets WHERE is_active = true`);
+    const { rows: allOutlets } = await pool.query(`SELECT id FROM outlets`);
     outletIds = allOutlets.map((r) => r.id);
   } else {
     const { rows: outletRows } = await pool.query(
