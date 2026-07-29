@@ -59,6 +59,15 @@ export default function Categories() {
     }
   }
 
+  async function handleActivate(id: string) {
+    try {
+      await api.put(`/categories/${id}`, { isActive: true });
+      await load();
+    } catch (err) {
+      if (err instanceof ApiError) setError(err.message);
+    }
+  }
+
   return (
     <Layout>
       <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
@@ -125,9 +134,13 @@ export default function Categories() {
                     </span>
                   </td>
                   <td className="px-4 py-3 text-right">
-                    {c.is_active && (
+                    {c.is_active ? (
                       <button onClick={() => handleDeactivate(c.id)} className="text-xs text-red-500 hover:text-red-700">
                         Nonaktifkan
+                      </button>
+                    ) : (
+                      <button onClick={() => handleActivate(c.id)} className="text-xs text-emerald-600 hover:text-emerald-700">
+                        Aktifkan
                       </button>
                     )}
                   </td>

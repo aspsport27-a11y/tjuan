@@ -108,6 +108,15 @@ export default function MenuItems() {
     }
   }
 
+  async function handleActivate(id: string) {
+    try {
+      await api.put(`/menu-items/${id}`, { isActive: true });
+      await load();
+    } catch (err) {
+      if (err instanceof ApiError) setError(err.message);
+    }
+  }
+
   return (
     <Layout>
       <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
@@ -193,9 +202,13 @@ export default function MenuItems() {
                         Resep
                       </button>
                     )}
-                    {it.is_active && (
+                    {it.is_active ? (
                       <button onClick={() => handleDeactivate(it.id)} className="text-xs text-red-500 hover:text-red-700">
                         Nonaktifkan
+                      </button>
+                    ) : (
+                      <button onClick={() => handleActivate(it.id)} className="text-xs text-emerald-600 hover:text-emerald-700">
+                        Aktifkan
                       </button>
                     )}
                   </td>

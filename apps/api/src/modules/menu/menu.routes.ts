@@ -7,6 +7,7 @@ import { resolveOutletId } from '../../utils/outlet-scope.js';
 const categoryInput = z.object({
   name: z.string().min(1),
   sortOrder: z.number().int().default(0),
+  isActive: z.boolean().optional(),
 });
 
 const menuItemInput = z.object({
@@ -18,6 +19,7 @@ const menuItemInput = z.object({
   imageUrl: z.string().url().optional(),
   trackStock: z.boolean().default(true),
   sortOrder: z.number().int().default(0),
+  isActive: z.boolean().optional(),
 });
 
 export default async function menuRoutes(fastify: FastifyInstance) {
@@ -59,10 +61,11 @@ export default async function menuRoutes(fastify: FastifyInstance) {
     const { rows } = await pool.query(
       `UPDATE categories SET
          name = COALESCE($3, name),
-         sort_order = COALESCE($4, sort_order)
+         sort_order = COALESCE($4, sort_order),
+         is_active = COALESCE($5, is_active)
        WHERE id = $1 AND outlet_id = $2
        RETURNING id, name, sort_order, is_active`,
-      [id, outletId, parsed.data.name ?? null, parsed.data.sortOrder ?? null],
+      [id, outletId, parsed.data.name ?? null, parsed.data.sortOrder ?? null, parsed.data.isActive ?? null],
     );
     if (rows.length === 0) return reply.code(404).send({ error: 'not_found' });
     return reply.send({ category: rows[0] });
@@ -125,10 +128,11 @@ export default async function menuRoutes(fastify: FastifyInstance) {
          price = COALESCE($7, price),
          image_url = COALESCE($8, image_url),
          track_stock = COALESCE($9, track_stock),
-         sort_order = COALESCE($10, sort_order)
+         sort_order = COALESCE($10, sort_order),
+         is_active = COALESCE($11, is_active)
        WHERE id = $1 AND outlet_id = $2
        RETURNING id, category_id, sku, name, description, price, image_url, track_stock, is_active, sort_order`,
-      [id, outletId, d.categoryId ?? null, d.sku ?? null, d.name ?? null, d.description ?? null, d.price ?? null, d.imageUrl ?? null, d.trackStock ?? null, d.sortOrder ?? null],
+      [id, outletId, d.categoryId ?? null, d.sku ?? null, d.name ?? null, d.description ?? null, d.price ?? null, d.imageUrl ?? null, d.trackStock ?? null, d.sortOrder ?? null, d.isActive ?? null],
     );
     if (rows.length === 0) return reply.code(404).send({ error: 'not_found' });
     return reply.send({ menuItem: rows[0] });
