@@ -57,6 +57,7 @@ export default function Expenses() {
   const [expenseDate, setExpenseDate] = useState(todayStr());
   const [creating, setCreating] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
+  const [showForm, setShowForm] = useState(false);
 
   const categories = tab === 'cash_drawer' ? TILL_CATEGORIES : OUTLET_CATEGORIES;
 
@@ -100,6 +101,7 @@ export default function Expenses() {
       });
       setAmount(0);
       setNotes('');
+      setShowForm(false);
       await load();
     } catch (err) {
       if (err instanceof ApiError) {
@@ -154,41 +156,52 @@ export default function Expenses() {
 
       {error && <div className="mb-4 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600">{error}</div>}
 
-      <form onSubmit={handleCreate} className="mb-6 rounded-xl border border-slate-200 bg-white p-4">
-        <h2 className="mb-3 text-sm font-semibold text-slate-700">
-          {tab === 'cash_drawer' ? 'Catat Pengeluaran Kas' : 'Catat Beban Outlet'}
-        </h2>
-        {formError && <div className="mb-3 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600">{formError}</div>}
+      <button
+        onClick={() => { setFormError(null); setShowForm(true); }}
+        className="mb-4 rounded-lg bg-sky-500 px-4 py-2 font-medium text-white hover:bg-sky-600"
+      >
+        + {tab === 'cash_drawer' ? 'Catat Pengeluaran Kas' : 'Catat Beban Outlet'}
+      </button>
 
-        <div className="mb-3 flex flex-wrap gap-2">
-          <div>
+      {showForm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+          <form onSubmit={handleCreate} className="max-h-[90vh] w-full max-w-sm overflow-y-auto rounded-2xl bg-white p-6">
+            <h2 className="mb-4 text-lg font-bold text-slate-900">
+              {tab === 'cash_drawer' ? 'Catat Pengeluaran Kas' : 'Catat Beban Outlet'}
+            </h2>
+            {formError && <div className="mb-3 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600">{formError}</div>}
+
             <label className="mb-1 block text-xs text-slate-500">Kategori</label>
-            <select value={category} onChange={(e) => setCategory(e.target.value)} className="w-44 rounded-lg border border-slate-300 px-3 py-2 outline-none focus:border-sky-500">
+            <select value={category} onChange={(e) => setCategory(e.target.value)} className="mb-4 w-full rounded-lg border border-slate-300 px-3 py-2 outline-none focus:border-sky-500">
               {categories.map((k) => (
                 <option key={k} value={k}>{CATEGORY_LABELS[k]}</option>
               ))}
             </select>
-          </div>
-          <div>
-            <label className="mb-1 block text-xs text-slate-500">Jumlah</label>
-            <input type="number" value={amount} onChange={(e) => setAmount(Number(e.target.value))} className="w-36 rounded-lg border border-slate-300 px-3 py-2 outline-none focus:border-sky-500" />
-          </div>
-          {tab === 'outlet' && (
-            <div>
-              <label className="mb-1 block text-xs text-slate-500">Tanggal beban</label>
-              <input type="date" value={expenseDate} onChange={(e) => setExpenseDate(e.target.value)} className="rounded-lg border border-slate-300 px-3 py-2 outline-none focus:border-sky-500" />
-            </div>
-          )}
-          <div className="min-w-[12rem] flex-1">
-            <label className="mb-1 block text-xs text-slate-500">Catatan</label>
-            <input value={notes} onChange={(e) => setNotes(e.target.value)} className="w-full rounded-lg border border-slate-300 px-3 py-2 outline-none focus:border-sky-500" />
-          </div>
-        </div>
 
-        <button type="submit" disabled={creating} className="rounded-lg bg-sky-500 px-4 py-2 font-medium text-white hover:bg-sky-600 disabled:opacity-50">
-          {creating ? 'Menyimpan...' : 'Catat'}
-        </button>
-      </form>
+            <label className="mb-1 block text-xs text-slate-500">Jumlah</label>
+            <input type="number" value={amount} onChange={(e) => setAmount(Number(e.target.value))} className="mb-4 w-full rounded-lg border border-slate-300 px-3 py-2 outline-none focus:border-sky-500" autoFocus />
+
+            {tab === 'outlet' && (
+              <>
+                <label className="mb-1 block text-xs text-slate-500">Tanggal beban</label>
+                <input type="date" value={expenseDate} onChange={(e) => setExpenseDate(e.target.value)} className="mb-4 w-full rounded-lg border border-slate-300 px-3 py-2 outline-none focus:border-sky-500" />
+              </>
+            )}
+
+            <label className="mb-1 block text-xs text-slate-500">Catatan</label>
+            <input value={notes} onChange={(e) => setNotes(e.target.value)} className="mb-6 w-full rounded-lg border border-slate-300 px-3 py-2 outline-none focus:border-sky-500" />
+
+            <div className="flex gap-2">
+              <button type="button" onClick={() => setShowForm(false)} className="flex-1 rounded-lg bg-slate-100 py-2.5 text-slate-700 hover:bg-slate-200">
+                Batal
+              </button>
+              <button type="submit" disabled={creating} className="flex-1 rounded-lg bg-sky-500 py-2.5 font-medium text-white hover:bg-sky-600 disabled:opacity-50">
+                {creating ? 'Menyimpan...' : 'Catat'}
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
 
       <div className="mb-4 flex flex-wrap items-end gap-2">
         <div>
