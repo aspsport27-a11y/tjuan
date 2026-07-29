@@ -1,7 +1,7 @@
 import { Navigate, Route, Routes } from 'react-router-dom';
 import Login from './pages/Login';
-import Tables from './pages/Tables';
-import Order from './pages/Order';
+import Home from './pages/Home';
+import BillDetail from './pages/BillDetail';
 import RequireAuth from './components/RequireAuth';
 
 export default function App() {
@@ -9,22 +9,22 @@ export default function App() {
     <Routes>
       <Route path="/login" element={<Login />} />
       <Route
-        path="/tables"
+        path="/"
         element={
           <RequireAuth>
-            <Tables />
+            <Home />
           </RequireAuth>
         }
       />
       <Route
-        path="/order/:sessionId"
+        path="/bill/:orderId"
         element={
           <RequireAuth>
-            <Order />
+            <BillDetail />
           </RequireAuth>
         }
       />
-      <Route path="*" element={<Navigate to="/tables" replace />} />
+      <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   );
 }

@@ -3,7 +3,7 @@
 
 export type OrderType = 'dine_in' | 'takeaway' | 'delivery';
 export type OrderStatus = 'open' | 'completed' | 'cancelled';
-export type PaymentMethod = 'cash' | 'qris' | 'card' | 'transfer';
+export type PaymentMethod = 'cash' | 'qris' | 'card' | 'transfer' | 'gofood' | 'grabfood';
 export type TableStatus = 'available' | 'occupied' | 'reserved';
 
 export interface Category {

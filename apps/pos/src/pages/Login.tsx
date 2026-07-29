@@ -31,7 +31,7 @@ export default function Login() {
     try {
       const res = await api.post<LoginResponse>('/auth/login', { username, password });
       setSession(res.token, res.user);
-      navigate('/tables');
+      navigate('/');
     } catch (err) {
       if (err instanceof ApiError) setError(err.message || 'Username atau password salah');
       else setError('Tidak bisa terhubung ke server');

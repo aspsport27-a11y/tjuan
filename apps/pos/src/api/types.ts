@@ -24,28 +24,32 @@ export interface MenuItemDto {
   sort_order: number;
 }
 
-export interface TableDto {
-  id: string;
-  name: string;
-  capacity: number;
-  status: 'available' | 'occupied' | 'reserved';
-  sort_order: number;
-  open_session_id: string | null;
-}
+export type OrderType = 'dine_in' | 'takeaway' | 'delivery';
+export type PaymentMethod = 'cash' | 'qris' | 'card' | 'transfer' | 'gofood' | 'grabfood';
 
-export interface TableSessionDto {
+export interface ShiftDto {
   id: string;
-  table_id: string | null;
-  order_type: 'dine_in' | 'takeaway' | 'delivery';
+  outlet_id: string;
+  shift_number: number;
   status: 'open' | 'closed';
-  guest_count: number | null;
+  opening_cash: string;
+  opened_by: string | null;
   opened_at: string;
+  closing_cash_counted: string | null;
+  expected_cash: string | null;
+  cash_variance: string | null;
+  closed_by: string | null;
+  closed_at: string | null;
+  notes: string | null;
+  runningExpectedCash?: number;
 }
 
 export interface OrderSummaryDto {
   id: string;
   order_number: string;
   table_session_id: string | null;
+  order_type: OrderType;
+  customer_label: string | null;
   status: 'open' | 'completed' | 'cancelled';
   subtotal: string;
   discount_total: string;
@@ -76,7 +80,7 @@ export interface OrderItemDto {
 
 export interface PaymentDto {
   id: string;
-  method: 'cash' | 'qris' | 'card' | 'transfer';
+  method: PaymentMethod;
   amount: string;
   reference_no: string | null;
   paid_at: string;

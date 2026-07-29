@@ -5,6 +5,7 @@ import { requirePermission } from '../rbac/require-permission.js';
 import { resolveOutletId } from '../../utils/outlet-scope.js';
 import { nextOrderNumber, recalculateOrderTotals } from './orders.service.js';
 import { deductStockForOrderItem, InsufficientStockError } from '../inventory/inventory.service.js';
+import { getOpenShiftId } from '../shifts/shifts.service.js';
 
 const orderItemInput = z.object({
   menuItemId: z.string().uuid(),
@@ -14,7 +15,9 @@ const orderItemInput = z.object({
 });
 
 const createOrderInput = z.object({
-  tableSessionId: z.string().uuid().optional(),
+  tableSessionId: z.string().uuid().optional(), // dormant: dine-in-table flow removed from POS, kept for historical data
+  orderType: z.enum(['dine_in', 'takeaway', 'delivery']).default('dine_in'),
+  customerLabel: z.string().optional(), // free text: "Meja A", a name, "GoFood #123" -- how a cashier finds an open bill again
   items: z.array(orderItemInput).min(1),
   notes: z.string().optional(),
 });
@@ -89,8 +92,8 @@ export default async function ordersRoutes(fastify: FastifyInstance) {
     const { status, tableSessionId } = request.query as { status?: string; tableSessionId?: string };
 
     const { rows } = await pool.query(
-      `SELECT id, order_number, table_session_id, status, subtotal, discount_total, tax_total,
-              service_charge_total, grand_total, created_at
+      `SELECT id, order_number, table_session_id, order_type, customer_label, status,
+              subtotal, discount_total, tax_total, service_charge_total, grand_total, created_at
        FROM orders
        WHERE outlet_id = $1
          AND ($2::text IS NULL OR status = $2)
@@ -144,12 +147,18 @@ export default async function ordersRoutes(fastify: FastifyInstance) {
     try {
       await client.query('BEGIN');
 
+      const shiftId = await getOpenShiftId(client, outletId);
+      if (!shiftId) {
+        await client.query('ROLLBACK');
+        return reply.code(409).send({ error: 'no_open_shift', message: 'Belum ada shift yang dibuka di outlet ini' });
+      }
+
       const orderNumber = await nextOrderNumber(client, outletId);
       const orderRes = await client.query(
-        `INSERT INTO orders (outlet_id, table_session_id, order_number, notes, created_by)
-         VALUES ($1, $2, $3, $4, $5)
-         RETURNING id, order_number, status, created_at`,
-        [outletId, d.tableSessionId ?? null, orderNumber, d.notes ?? null, request.user.sub],
+        `INSERT INTO orders (outlet_id, table_session_id, order_type, customer_label, shift_id, order_number, notes, created_by)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+         RETURNING id, order_number, order_type, customer_label, status, created_at`,
+        [outletId, d.tableSessionId ?? null, d.orderType, d.customerLabel ?? null, shiftId, orderNumber, d.notes ?? null, request.user.sub],
       );
       const orderId = orderRes.rows[0].id;
 
@@ -279,7 +288,7 @@ export default async function ordersRoutes(fastify: FastifyInstance) {
     const { id } = request.params as { id: string };
     const parsed = z
       .object({
-        method: z.enum(['cash', 'qris', 'card', 'transfer']),
+        method: z.enum(['cash', 'qris', 'card', 'transfer', 'gofood', 'grabfood']),
         amount: z.number().positive(),
         referenceNo: z.string().optional(),
       })
@@ -291,7 +300,7 @@ export default async function ordersRoutes(fastify: FastifyInstance) {
     try {
       await client.query('BEGIN');
 
-      const orderRes = await client.query(`SELECT grand_total, status FROM orders WHERE id = $1 AND outlet_id = $2 FOR UPDATE`, [id, outletId]);
+      const orderRes = await client.query(`SELECT grand_total, status, shift_id FROM orders WHERE id = $1 AND outlet_id = $2 FOR UPDATE`, [id, outletId]);
       if (orderRes.rows.length === 0) {
         await client.query('ROLLBACK');
         return reply.code(404).send({ error: 'not_found' });
@@ -302,9 +311,9 @@ export default async function ordersRoutes(fastify: FastifyInstance) {
       }
 
       await client.query(
-        `INSERT INTO payments (order_id, outlet_id, method, amount, reference_no, received_by)
-         VALUES ($1, $2, $3, $4, $5, $6)`,
-        [id, outletId, d.method, d.amount, d.referenceNo ?? null, request.user.sub],
+        `INSERT INTO payments (order_id, outlet_id, shift_id, method, amount, reference_no, received_by)
+         VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+        [id, outletId, orderRes.rows[0].shift_id, d.method, d.amount, d.referenceNo ?? null, request.user.sub],
       );
 
       const paidRes = await client.query(`SELECT COALESCE(SUM(amount), 0) AS paid FROM payments WHERE order_id = $1`, [id]);

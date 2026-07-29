@@ -23,6 +23,9 @@ export const PERMISSIONS = [
   // Payments
   { code: 'payment.create', module: 'payment', description: 'Terima pembayaran' },
 
+  // Shifts
+  { code: 'shift.manage', module: 'order', description: 'Buka/tutup shift kasir' },
+
   // Reports
   { code: 'report.view_business', module: 'report', description: 'Lihat laporan bisnis (omzet, produk terlaris)' },
   { code: 'report.view_management', module: 'report', description: 'Lihat laporan manajemen (HPP, margin, biaya)' },
@@ -50,6 +53,7 @@ export const DEFAULT_ROLES: Record<string, { name: string; description: string; 
       'table.manage',
       'order.create', 'order.update', 'order.cancel', 'order.close',
       'payment.create',
+      'shift.manage',
       'report.view_business', 'report.view_management',
     ],
   },
@@ -61,6 +65,7 @@ export const DEFAULT_ROLES: Record<string, { name: string; description: string; 
       'table.manage',
       'order.create', 'order.update', 'order.close',
       'payment.create',
+      'shift.manage',
     ],
   },
   inventory_staff: {
