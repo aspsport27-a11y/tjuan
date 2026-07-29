@@ -1,5 +1,7 @@
 import { useEffect, useState } from 'react';
 import Layout from '../components/Layout';
+import OutletSelector from '../components/OutletSelector';
+import { useOutletStore } from '../store/outlet';
 import { api, ApiError } from '../api/client';
 
 interface Shift {
@@ -33,6 +35,7 @@ export default function Shifts() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [detail, setDetail] = useState<ShiftDetail | null>(null);
+  const activeOutletId = useOutletStore((s) => s.activeOutletId);
 
   async function load() {
     setLoading(true);
@@ -48,7 +51,7 @@ export default function Shifts() {
 
   useEffect(() => {
     load();
-  }, []);
+  }, [activeOutletId]);
 
   async function openDetail(id: string) {
     try {
@@ -61,7 +64,10 @@ export default function Shifts() {
 
   return (
     <Layout>
-      <h1 className="mb-6 text-2xl font-bold text-slate-900">Shift Kasir</h1>
+      <div className="mb-6 flex items-center justify-between">
+        <h1 className="text-2xl font-bold text-slate-900">Shift Kasir</h1>
+        <OutletSelector />
+      </div>
 
       {error && <div className="mb-4 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600">{error}</div>}
 

@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react';
 import { formatRupiah } from '@fnb/shared';
 import Layout from '../components/Layout';
+import OutletSelector from '../components/OutletSelector';
+import { useOutletStore } from '../store/outlet';
 import { api, ApiError } from '../api/client';
 
 interface Ingredient {
@@ -15,6 +17,7 @@ interface Ingredient {
 export default function Ingredients() {
   const [ingredients, setIngredients] = useState<Ingredient[]>([]);
   const [error, setError] = useState<string | null>(null);
+  const activeOutletId = useOutletStore((s) => s.activeOutletId);
   const [loading, setLoading] = useState(true);
 
   const [name, setName] = useState('');
@@ -38,7 +41,8 @@ export default function Ingredients() {
 
   useEffect(() => {
     load();
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeOutletId]);
 
   async function handleCreate(e: React.FormEvent) {
     e.preventDefault();

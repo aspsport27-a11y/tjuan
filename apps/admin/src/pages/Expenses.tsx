@@ -1,5 +1,7 @@
 import { useEffect, useState } from 'react';
 import Layout from '../components/Layout';
+import OutletSelector from '../components/OutletSelector';
+import { useOutletStore } from '../store/outlet';
 import { api, ApiError } from '../api/client';
 
 interface Expense {
@@ -39,6 +41,7 @@ export default function Expenses() {
   const [notes, setNotes] = useState('');
   const [creating, setCreating] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
+  const activeOutletId = useOutletStore((s) => s.activeOutletId);
 
   async function load() {
     setLoading(true);
@@ -55,7 +58,7 @@ export default function Expenses() {
   useEffect(() => {
     load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [from, to]);
+  }, [from, to, activeOutletId]);
 
   async function handleCreate(e: React.FormEvent) {
     e.preventDefault();
@@ -84,7 +87,10 @@ export default function Expenses() {
 
   return (
     <Layout>
-      <h1 className="mb-6 text-2xl font-bold text-slate-900">Pengeluaran</h1>
+      <div className="mb-6 flex items-center justify-between">
+        <h1 className="text-2xl font-bold text-slate-900">Pengeluaran</h1>
+        <OutletSelector />
+      </div>
 
       {error && <div className="mb-4 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600">{error}</div>}
 
