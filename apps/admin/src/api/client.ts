@@ -8,8 +8,25 @@ export class ApiError extends Error {
     public status: number,
     public body: unknown,
   ) {
-    super(typeof body === 'object' && body && 'message' in body ? String((body as { message: unknown }).message) : `Request failed (${status})`);
+    super(extractErrorMessage(body, status));
   }
+}
+
+// Route validation failures (400 invalid_request) come back as
+// { error, issues: zod.flatten() } with no top-level "message" -- surface
+// the actual field errors instead of a generic "Request failed (400)".
+function extractErrorMessage(body: unknown, status: number): string {
+  if (body && typeof body === 'object') {
+    if ('message' in body && typeof (body as { message: unknown }).message === 'string') {
+      return (body as { message: string }).message;
+    }
+    if ('issues' in body) {
+      const issues = (body as { issues?: { fieldErrors?: Record<string, string[]> } }).issues;
+      const messages = Object.entries(issues?.fieldErrors ?? {}).flatMap(([field, msgs]) => msgs.map((m) => `${field}: ${m}`));
+      if (messages.length > 0) return messages.join('; ');
+    }
+  }
+  return `Request failed (${status})`;
 }
 
 // Every data-scoped endpoint reads its outlet from ?outlet_id= (see
