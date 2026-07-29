@@ -19,6 +19,9 @@ interface Pnl {
   cashIn: number;
   cashOut: number;
   purchasesReceived: number;
+  supplierPaidCash: number;
+  supplierPaidTotal: number;
+  payables: number;
 }
 
 interface Consolidated {
@@ -178,18 +181,28 @@ function OutletView({ pnl }: { pnl: Pnl }) {
           <h2 className="mb-4 text-sm font-semibold text-slate-700">Arus Kas Tunai</h2>
           <Line label="Penerimaan tunai" value={pnl.cashIn} />
           <Line label="Pengeluaran kas kasir" value={-pnl.cashOut} />
+          <Line label="Bayar supplier (tunai)" value={-pnl.supplierPaidCash} />
           <div className="my-2 border-t border-slate-200" />
-          <Line label="Kas bersih" value={pnl.cashIn - pnl.cashOut} bold />
+          <Line label="Kas bersih" value={pnl.cashIn - pnl.cashOut - pnl.supplierPaidCash} bold />
           <p className="mt-3 text-xs text-slate-400">
             Non-tunai (QRIS/GoFood/GrabFood) tidak masuk sini karena tidak melewati laci kasir.
           </p>
         </div>
 
         <div className="rounded-xl border border-slate-200 bg-white p-4 sm:p-6">
-          <h2 className="mb-4 text-sm font-semibold text-slate-700">Pembelian Stok</h2>
+          <h2 className="mb-4 text-sm font-semibold text-slate-700">Pembelian & Utang Supplier</h2>
           <Line label="PO diterima periode ini" value={pnl.purchasesReceived} />
+          <Line label="Dibayar ke supplier periode ini" value={pnl.supplierPaidTotal} />
+          <div className="my-2 border-t border-slate-200" />
+          <div className="flex items-center justify-between py-1">
+            <span className="text-sm font-semibold text-slate-900">Utang supplier saat ini</span>
+            <span className={`text-sm font-semibold tabular-nums ${pnl.payables > 0 ? 'text-red-600' : 'text-emerald-600'}`}>
+              {rp(pnl.payables)}
+            </span>
+          </div>
           <p className="mt-3 text-xs text-slate-400">
             Pembelian stok <strong>bukan beban</strong> di laba rugi -- ia jadi persediaan, dan baru jadi biaya (HPP) saat barangnya terjual.
+            Utang adalah saldo <strong>saat ini</strong>, bukan angka periode.
           </p>
         </div>
       </div>

@@ -92,17 +92,46 @@ export default async function procurementRoutes(fastify: FastifyInstance) {
     if (!outletId) return;
     const { status } = request.query as { status?: string };
 
+    const { paymentStatus } = request.query as { paymentStatus?: string };
+
     const { rows } = await pool.query(
       `SELECT po.id, po.po_number, po.status, po.order_date, po.total_amount, po.notes,
-              po.created_at, po.received_at, s.name AS supplier_name
+              po.created_at, po.received_at,
+              po.payment_status, po.paid_at, po.payment_method,
+              s.name AS supplier_name
        FROM purchase_orders po
        JOIN suppliers s ON s.id = po.supplier_id
-       WHERE po.outlet_id = $1 AND ($2::text IS NULL OR po.status = $2)
+       WHERE po.outlet_id = $1
+         AND ($2::text IS NULL OR po.status = $2)
+         AND ($3::text IS NULL OR po.payment_status = $3)
        ORDER BY po.created_at DESC
        LIMIT 100`,
-      [outletId, status ?? null],
+      [outletId, status ?? null, paymentStatus ?? null],
     );
     return reply.send({ purchaseOrders: rows });
+  });
+
+  // Outstanding supplier debt: everything not cancelled and not yet paid,
+  // grouped by supplier so it reads as "who we owe, how much".
+  fastify.get('/payables', { preHandler: requirePermission('procurement.manage', 'report.view_management') }, async (request, reply) => {
+    const outletId = resolveOutletId(request, reply);
+    if (!outletId) return;
+
+    const { rows } = await pool.query(
+      `SELECT s.id AS supplier_id, s.name AS supplier_name,
+              COUNT(*)                     AS po_count,
+              COALESCE(SUM(po.total_amount), 0) AS total_due,
+              MIN(po.order_date)           AS oldest_order_date
+       FROM purchase_orders po
+       JOIN suppliers s ON s.id = po.supplier_id
+       WHERE po.outlet_id = $1 AND po.payment_status = 'unpaid' AND po.status <> 'cancelled'
+       GROUP BY s.id, s.name
+       ORDER BY total_due DESC`,
+      [outletId],
+    );
+
+    const totalDue = rows.reduce((sum, r) => sum + Number(r.total_due), 0);
+    return reply.send({ totalDue, suppliers: rows });
   });
 
   fastify.get('/purchase-orders/:id', { preHandler: requirePermission('procurement.manage', 'inventory.view') }, async (request, reply) => {
@@ -240,10 +269,57 @@ export default async function procurementRoutes(fastify: FastifyInstance) {
     }
   });
 
+  // Payment is independent of receiving: an unreceived PO can be prepaid,
+  // and a received one can sit unpaid as a payable.
+  fastify.post('/purchase-orders/:id/pay', { preHandler: requirePermission('procurement.manage') }, async (request, reply) => {
+    const outletId = resolveOutletId(request, reply);
+    if (!outletId) return;
+    const { id } = request.params as { id: string };
+    const parsed = z
+      .object({
+        paymentMethod: z.enum(['cash', 'transfer', 'other']).default('transfer'),
+        paidAt: z.string().optional(),
+      })
+      .safeParse(request.body ?? {});
+    if (!parsed.success) return reply.code(400).send({ error: 'invalid_request', issues: parsed.error.flatten() });
+
+    const current = await pool.query(
+      `SELECT status, payment_status FROM purchase_orders WHERE id = $1 AND outlet_id = $2`,
+      [id, outletId],
+    );
+    if (current.rows.length === 0) return reply.code(404).send({ error: 'not_found' });
+    if (current.rows[0].status === 'cancelled') {
+      return reply.code(409).send({ error: 'po_cancelled', message: 'PO yang dibatalkan tidak bisa dibayar' });
+    }
+    if (current.rows[0].payment_status === 'paid') {
+      return reply.code(409).send({ error: 'already_paid', message: 'PO ini sudah ditandai dibayar' });
+    }
+
+    const { rows } = await pool.query(
+      `UPDATE purchase_orders
+       SET payment_status = 'paid', paid_at = COALESCE($3::timestamptz, now()),
+           paid_by = $4, payment_method = $5
+       WHERE id = $1 AND outlet_id = $2
+       RETURNING id, po_number, payment_status, paid_at, payment_method`,
+      [id, outletId, parsed.data.paidAt ?? null, request.user.sub, parsed.data.paymentMethod],
+    );
+    return reply.send({ purchaseOrder: rows[0] });
+  });
+
   fastify.post('/purchase-orders/:id/cancel', { preHandler: requirePermission('procurement.manage') }, async (request, reply) => {
     const outletId = resolveOutletId(request, reply);
     if (!outletId) return;
     const { id } = request.params as { id: string };
+
+    // Cancelling something already paid for would silently erase a real cash
+    // outflow from the books.
+    const current = await pool.query(
+      `SELECT payment_status FROM purchase_orders WHERE id = $1 AND outlet_id = $2`,
+      [id, outletId],
+    );
+    if (current.rows.length > 0 && current.rows[0].payment_status === 'paid') {
+      return reply.code(409).send({ error: 'already_paid', message: 'PO yang sudah dibayar tidak bisa dibatalkan' });
+    }
 
     const { rows } = await pool.query(
       `UPDATE purchase_orders SET status = 'cancelled'

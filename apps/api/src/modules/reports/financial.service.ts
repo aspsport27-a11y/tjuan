@@ -13,7 +13,10 @@ export interface OutletPnl {
   netProfit: number;
   cashIn: number;
   cashOut: number;
-  purchasesReceived: number; // PO value received in period (stock bought, not a P&L cost)
+  purchasesReceived: number;   // PO value received in period (stock bought, not a P&L cost)
+  supplierPaidCash: number;    // POs settled in cash during the period
+  supplierPaidTotal: number;   // POs settled by any method during the period
+  payables: number;            // still owed to suppliers as of now (not period-bound)
 }
 
 /**
@@ -30,7 +33,7 @@ export interface OutletPnl {
  * daily report. HPP is order-based, since line items only exist on orders.
  */
 export async function buildOutletPnl(outletId: string, outletName: string, from: string, to: string): Promise<OutletPnl> {
-  const [revenueRes, cogsRes, expenseRes, poRes] = await Promise.all([
+  const [revenueRes, cogsRes, expenseRes, poRes, poPaidRes, payablesRes] = await Promise.all([
     pool.query(
       `SELECT method, COALESCE(SUM(amount), 0) AS total
        FROM payments
@@ -64,6 +67,22 @@ export async function buildOutletPnl(outletId: string, outletName: string, from:
        WHERE outlet_id = $1 AND status = 'received'
          AND received_at >= $2::date AND received_at < $3::date + interval '1 day'`,
       [outletId, from, to],
+    ),
+    pool.query(
+      `SELECT payment_method, COALESCE(SUM(total_amount), 0) AS total
+       FROM purchase_orders
+       WHERE outlet_id = $1 AND payment_status = 'paid'
+         AND paid_at >= $2::date AND paid_at < $3::date + interval '1 day'
+       GROUP BY payment_method`,
+      [outletId, from, to],
+    ),
+    // Outstanding debt is a balance as of now, not a flow within the period,
+    // so it is deliberately NOT date-filtered.
+    pool.query(
+      `SELECT COALESCE(SUM(total_amount), 0) AS total
+       FROM purchase_orders
+       WHERE outlet_id = $1 AND payment_status = 'unpaid' AND status <> 'cancelled'`,
+      [outletId],
     ),
   ]);
 
@@ -104,5 +123,8 @@ export async function buildOutletPnl(outletId: string, outletName: string, from:
     cashIn,
     cashOut,
     purchasesReceived: Number(poRes.rows[0].total),
+    supplierPaidCash: Number(poPaidRes.rows.find((r) => r.payment_method === 'cash')?.total ?? 0),
+    supplierPaidTotal: poPaidRes.rows.reduce((s, r) => s + Number(r.total), 0),
+    payables: Number(payablesRes.rows[0].total),
   };
 }
