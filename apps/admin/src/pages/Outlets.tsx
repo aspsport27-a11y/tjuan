@@ -23,6 +23,7 @@ export default function Outlets() {
   const [creating, setCreating] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
   const [created, setCreated] = useState(false);
+  const [showForm, setShowForm] = useState(false);
   const [editTarget, setEditTarget] = useState<Outlet | null>(null);
 
   async function load() {
@@ -57,6 +58,7 @@ export default function Outlets() {
       setAddress('');
       setPhone('');
       setCreated(true);
+      setShowForm(false);
       await load();
     } catch (err) {
       if (err instanceof ApiError) setFormError(err.message);
@@ -91,39 +93,49 @@ export default function Outlets() {
 
       {error && <div className="mb-4 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600">{error}</div>}
 
-      <form onSubmit={handleCreate} className="mb-6 rounded-xl border border-slate-200 bg-white p-4">
-        <h2 className="mb-3 text-sm font-semibold text-slate-700">Tambah Outlet Baru</h2>
-
-        {formError && <div className="mb-3 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600">{formError}</div>}
-        {created && (
-          <div className="mb-3 rounded-lg bg-emerald-50 px-3 py-2 text-sm text-emerald-700">
-            Outlet dibuat. Anda (owner) perlu <strong>logout &amp; login ulang</strong> untuk bisa mengaksesnya di daftar outlet.
-          </div>
-        )}
-
-        <div className="mb-3 flex flex-wrap gap-2">
-          <div>
-            <label className="mb-1 block text-xs text-slate-500">Kode</label>
-            <input value={code} onChange={(e) => setCode(e.target.value)} placeholder="mis. resto2" className="w-32 rounded-lg border border-slate-300 px-3 py-2 outline-none focus:border-sky-500" />
-          </div>
-          <div>
-            <label className="mb-1 block text-xs text-slate-500">Nama outlet</label>
-            <input value={name} onChange={(e) => setName(e.target.value)} className="w-48 rounded-lg border border-slate-300 px-3 py-2 outline-none focus:border-sky-500" />
-          </div>
-          <div>
-            <label className="mb-1 block text-xs text-slate-500">Alamat</label>
-            <input value={address} onChange={(e) => setAddress(e.target.value)} className="w-56 rounded-lg border border-slate-300 px-3 py-2 outline-none focus:border-sky-500" />
-          </div>
-          <div>
-            <label className="mb-1 block text-xs text-slate-500">Telepon</label>
-            <input value={phone} onChange={(e) => setPhone(e.target.value)} className="w-40 rounded-lg border border-slate-300 px-3 py-2 outline-none focus:border-sky-500" />
-          </div>
+      {created && (
+        <div className="mb-4 rounded-lg bg-emerald-50 px-3 py-2 text-sm text-emerald-700">
+          Outlet dibuat. Anda (owner) perlu <strong>logout &amp; login ulang</strong> untuk bisa mengaksesnya di daftar outlet.
         </div>
+      )}
 
-        <button type="submit" disabled={creating} className="rounded-lg bg-sky-500 px-4 py-2 font-medium text-white hover:bg-sky-600 disabled:opacity-50">
-          {creating ? 'Menyimpan...' : 'Tambah Outlet'}
-        </button>
-      </form>
+      <button
+        onClick={() => { setFormError(null); setShowForm(true); }}
+        className="mb-4 rounded-lg bg-sky-500 px-4 py-2 font-medium text-white hover:bg-sky-600"
+      >
+        + Tambah Outlet
+      </button>
+
+      {showForm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+          <form onSubmit={handleCreate} className="max-h-[90vh] w-full max-w-sm overflow-y-auto rounded-2xl bg-white p-6">
+            <h2 className="mb-4 text-lg font-bold text-slate-900">Tambah Outlet</h2>
+
+            {formError && <div className="mb-3 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600">{formError}</div>}
+
+            <label className="mb-1 block text-xs text-slate-500">Kode</label>
+            <input value={code} onChange={(e) => setCode(e.target.value)} placeholder="mis. resto2 (tanpa spasi)" className="mb-4 w-full rounded-lg border border-slate-300 px-3 py-2 outline-none focus:border-sky-500" autoFocus />
+
+            <label className="mb-1 block text-xs text-slate-500">Nama outlet</label>
+            <input value={name} onChange={(e) => setName(e.target.value)} className="mb-4 w-full rounded-lg border border-slate-300 px-3 py-2 outline-none focus:border-sky-500" />
+
+            <label className="mb-1 block text-xs text-slate-500">Alamat</label>
+            <input value={address} onChange={(e) => setAddress(e.target.value)} className="mb-4 w-full rounded-lg border border-slate-300 px-3 py-2 outline-none focus:border-sky-500" />
+
+            <label className="mb-1 block text-xs text-slate-500">Telepon</label>
+            <input value={phone} onChange={(e) => setPhone(e.target.value)} className="mb-6 w-full rounded-lg border border-slate-300 px-3 py-2 outline-none focus:border-sky-500" />
+
+            <div className="flex gap-2">
+              <button type="button" onClick={() => setShowForm(false)} className="flex-1 rounded-lg bg-slate-100 py-2.5 text-slate-700 hover:bg-slate-200">
+                Batal
+              </button>
+              <button type="submit" disabled={creating} className="flex-1 rounded-lg bg-sky-500 py-2.5 font-medium text-white hover:bg-sky-600 disabled:opacity-50">
+                {creating ? 'Menyimpan...' : 'Tambah'}
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
 
       {loading ? (
         <p className="text-slate-500">Memuat...</p>

@@ -39,6 +39,7 @@ export default function MenuItems() {
   const [error, setError] = useState<string | null>(null);
   const activeOutletId = useOutletStore((s) => s.activeOutletId);
   const [loading, setLoading] = useState(true);
+  const [showForm, setShowForm] = useState(false);
 
   const [name, setName] = useState('');
   const [price, setPrice] = useState('');
@@ -82,6 +83,7 @@ export default function MenuItems() {
       setName('');
       setPrice('');
       setCategoryId('');
+      setShowForm(false);
       await load();
     } catch (err) {
       if (err instanceof ApiError) setError(err.message);
@@ -106,32 +108,48 @@ export default function MenuItems() {
 
       {error && <div className="mb-4 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600">{error}</div>}
 
-      <form onSubmit={handleCreate} className="mb-6 flex flex-wrap items-end gap-2">
-        <div>
-          <label className="mb-1 block text-xs text-slate-500">Nama menu</label>
-          <input value={name} onChange={(e) => setName(e.target.value)} className="w-56 rounded-lg border border-slate-300 px-3 py-2 outline-none focus:border-sky-500" />
+      <button
+        onClick={() => setShowForm(true)}
+        className="mb-4 rounded-lg bg-sky-500 px-4 py-2 font-medium text-white hover:bg-sky-600"
+      >
+        + Tambah Menu
+      </button>
+
+      {showForm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+          <form onSubmit={handleCreate} className="max-h-[90vh] w-full max-w-sm overflow-y-auto rounded-2xl bg-white p-6">
+            <h2 className="mb-4 text-lg font-bold text-slate-900">Tambah Menu</h2>
+
+            <label className="mb-1 block text-xs text-slate-500">Nama menu</label>
+            <input value={name} onChange={(e) => setName(e.target.value)} className="mb-4 w-full rounded-lg border border-slate-300 px-3 py-2 outline-none focus:border-sky-500" autoFocus />
+
+            <label className="mb-1 block text-xs text-slate-500">Harga (Rp)</label>
+            <input type="number" value={price} onChange={(e) => setPrice(e.target.value)} className="mb-4 w-full rounded-lg border border-slate-300 px-3 py-2 outline-none focus:border-sky-500" />
+
+            <label className="mb-1 block text-xs text-slate-500">Kategori</label>
+            <select value={categoryId} onChange={(e) => setCategoryId(e.target.value)} className="mb-4 w-full rounded-lg border border-slate-300 px-3 py-2 outline-none focus:border-sky-500">
+              <option value="">- Tanpa kategori -</option>
+              {categories.map((c) => (
+                <option key={c.id} value={c.id}>{c.name}</option>
+              ))}
+            </select>
+
+            <label className="mb-6 flex items-center gap-2 text-sm text-slate-600">
+              <input type="checkbox" checked={trackStock} onChange={(e) => setTrackStock(e.target.checked)} />
+              Potong stok bahan otomatis saat terjual
+            </label>
+
+            <div className="flex gap-2">
+              <button type="button" onClick={() => setShowForm(false)} className="flex-1 rounded-lg bg-slate-100 py-2.5 text-slate-700 hover:bg-slate-200">
+                Batal
+              </button>
+              <button type="submit" className="flex-1 rounded-lg bg-sky-500 py-2.5 font-medium text-white hover:bg-sky-600">
+                Tambah
+              </button>
+            </div>
+          </form>
         </div>
-        <div>
-          <label className="mb-1 block text-xs text-slate-500">Harga (Rp)</label>
-          <input type="number" value={price} onChange={(e) => setPrice(e.target.value)} className="w-32 rounded-lg border border-slate-300 px-3 py-2 outline-none focus:border-sky-500" />
-        </div>
-        <div>
-          <label className="mb-1 block text-xs text-slate-500">Kategori</label>
-          <select value={categoryId} onChange={(e) => setCategoryId(e.target.value)} className="rounded-lg border border-slate-300 px-3 py-2 outline-none focus:border-sky-500">
-            <option value="">- Tanpa kategori -</option>
-            {categories.map((c) => (
-              <option key={c.id} value={c.id}>{c.name}</option>
-            ))}
-          </select>
-        </div>
-        <label className="mb-2 flex items-center gap-2 text-sm text-slate-600">
-          <input type="checkbox" checked={trackStock} onChange={(e) => setTrackStock(e.target.checked)} />
-          Potong stok bahan
-        </label>
-        <button type="submit" className="rounded-lg bg-sky-500 px-4 py-2 font-medium text-white hover:bg-sky-600">
-          Tambah
-        </button>
-      </form>
+      )}
 
       {loading ? (
         <p className="text-slate-500">Memuat...</p>

@@ -19,6 +19,7 @@ export default function Ingredients() {
   const [error, setError] = useState<string | null>(null);
   const activeOutletId = useOutletStore((s) => s.activeOutletId);
   const [loading, setLoading] = useState(true);
+  const [showForm, setShowForm] = useState(false);
 
   const [name, setName] = useState('');
   const [unit, setUnit] = useState('');
@@ -60,6 +61,7 @@ export default function Ingredients() {
       setUnit('');
       setMinStock('0');
       setCostPerUnit('0');
+      setShowForm(false);
       await load();
     } catch (err) {
       if (err instanceof ApiError) setError(err.message);
@@ -75,27 +77,41 @@ export default function Ingredients() {
 
       {error && <div className="mb-4 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600">{error}</div>}
 
-      <form onSubmit={handleCreate} className="mb-6 flex flex-wrap items-end gap-2">
-        <div>
-          <label className="mb-1 block text-xs text-slate-500">Nama bahan</label>
-          <input value={name} onChange={(e) => setName(e.target.value)} className="w-48 rounded-lg border border-slate-300 px-3 py-2 outline-none focus:border-sky-500" />
+      <button
+        onClick={() => setShowForm(true)}
+        className="mb-4 rounded-lg bg-sky-500 px-4 py-2 font-medium text-white hover:bg-sky-600"
+      >
+        + Tambah Bahan
+      </button>
+
+      {showForm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+          <form onSubmit={handleCreate} className="max-h-[90vh] w-full max-w-sm overflow-y-auto rounded-2xl bg-white p-6">
+            <h2 className="mb-4 text-lg font-bold text-slate-900">Tambah Bahan</h2>
+
+            <label className="mb-1 block text-xs text-slate-500">Nama bahan</label>
+            <input value={name} onChange={(e) => setName(e.target.value)} className="mb-4 w-full rounded-lg border border-slate-300 px-3 py-2 outline-none focus:border-sky-500" autoFocus />
+
+            <label className="mb-1 block text-xs text-slate-500">Satuan</label>
+            <input value={unit} onChange={(e) => setUnit(e.target.value)} placeholder="gram / ml / pcs" className="mb-4 w-full rounded-lg border border-slate-300 px-3 py-2 outline-none focus:border-sky-500" />
+
+            <label className="mb-1 block text-xs text-slate-500">Stok minimum</label>
+            <input type="number" value={minStock} onChange={(e) => setMinStock(e.target.value)} className="mb-4 w-full rounded-lg border border-slate-300 px-3 py-2 outline-none focus:border-sky-500" />
+
+            <label className="mb-1 block text-xs text-slate-500">Harga/satuan (Rp)</label>
+            <input type="number" value={costPerUnit} onChange={(e) => setCostPerUnit(e.target.value)} className="mb-6 w-full rounded-lg border border-slate-300 px-3 py-2 outline-none focus:border-sky-500" />
+
+            <div className="flex gap-2">
+              <button type="button" onClick={() => setShowForm(false)} className="flex-1 rounded-lg bg-slate-100 py-2.5 text-slate-700 hover:bg-slate-200">
+                Batal
+              </button>
+              <button type="submit" className="flex-1 rounded-lg bg-sky-500 py-2.5 font-medium text-white hover:bg-sky-600">
+                Tambah
+              </button>
+            </div>
+          </form>
         </div>
-        <div>
-          <label className="mb-1 block text-xs text-slate-500">Satuan</label>
-          <input value={unit} onChange={(e) => setUnit(e.target.value)} placeholder="gram / ml / pcs" className="w-28 rounded-lg border border-slate-300 px-3 py-2 outline-none focus:border-sky-500" />
-        </div>
-        <div>
-          <label className="mb-1 block text-xs text-slate-500">Stok minimum</label>
-          <input type="number" value={minStock} onChange={(e) => setMinStock(e.target.value)} className="w-24 rounded-lg border border-slate-300 px-3 py-2 outline-none focus:border-sky-500" />
-        </div>
-        <div>
-          <label className="mb-1 block text-xs text-slate-500">Harga/satuan (Rp)</label>
-          <input type="number" value={costPerUnit} onChange={(e) => setCostPerUnit(e.target.value)} className="w-32 rounded-lg border border-slate-300 px-3 py-2 outline-none focus:border-sky-500" />
-        </div>
-        <button type="submit" className="rounded-lg bg-sky-500 px-4 py-2 font-medium text-white hover:bg-sky-600">
-          Tambah
-        </button>
-      </form>
+      )}
 
       {loading ? (
         <p className="text-slate-500">Memuat...</p>

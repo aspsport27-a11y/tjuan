@@ -17,6 +17,7 @@ export default function Categories() {
   const [error, setError] = useState<string | null>(null);
   const activeOutletId = useOutletStore((s) => s.activeOutletId);
   const [loading, setLoading] = useState(true);
+  const [showForm, setShowForm] = useState(false);
 
   async function load() {
     setLoading(true);
@@ -42,6 +43,7 @@ export default function Categories() {
     try {
       await api.post('/categories', { name: name.trim(), sortOrder: categories.length });
       setName('');
+      setShowForm(false);
       await load();
     } catch (err) {
       if (err instanceof ApiError) setError(err.message);
@@ -66,17 +68,38 @@ export default function Categories() {
 
       {error && <div className="mb-4 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600">{error}</div>}
 
-      <form onSubmit={handleCreate} className="mb-6 flex gap-2">
-        <input
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-          placeholder="Nama kategori baru, mis. Minuman"
-          className="w-72 rounded-lg border border-slate-300 px-3 py-2 outline-none focus:border-sky-500"
-        />
-        <button type="submit" className="rounded-lg bg-sky-500 px-4 py-2 font-medium text-white hover:bg-sky-600">
-          Tambah
-        </button>
-      </form>
+      <button
+        onClick={() => setShowForm(true)}
+        className="mb-4 rounded-lg bg-sky-500 px-4 py-2 font-medium text-white hover:bg-sky-600"
+      >
+        + Tambah Kategori
+      </button>
+
+      {showForm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+          <form onSubmit={handleCreate} className="max-h-[90vh] w-full max-w-sm overflow-y-auto rounded-2xl bg-white p-6">
+            <h2 className="mb-4 text-lg font-bold text-slate-900">Tambah Kategori</h2>
+
+            <label className="mb-1 block text-xs text-slate-500">Nama kategori</label>
+            <input
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder="mis. Minuman"
+              className="mb-6 w-full rounded-lg border border-slate-300 px-3 py-2 outline-none focus:border-sky-500"
+              autoFocus
+            />
+
+            <div className="flex gap-2">
+              <button type="button" onClick={() => setShowForm(false)} className="flex-1 rounded-lg bg-slate-100 py-2.5 text-slate-700 hover:bg-slate-200">
+                Batal
+              </button>
+              <button type="submit" className="flex-1 rounded-lg bg-sky-500 py-2.5 font-medium text-white hover:bg-sky-600">
+                Tambah
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
 
       {loading ? (
         <p className="text-slate-500">Memuat...</p>

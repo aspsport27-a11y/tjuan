@@ -31,6 +31,7 @@ export default function Users() {
   const [selectedRoles, setSelectedRoles] = useState<string[]>([]);
   const [creating, setCreating] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
+  const [showForm, setShowForm] = useState(false);
 
   const [resetTarget, setResetTarget] = useState<UserRow | null>(null);
   const [editTarget, setEditTarget] = useState<UserRow | null>(null);
@@ -75,6 +76,7 @@ export default function Users() {
       setFullName('');
       setPassword('');
       setSelectedRoles([]);
+      setShowForm(false);
       await load();
     } catch (err) {
       if (err instanceof ApiError) setFormError(err.message);
@@ -101,42 +103,50 @@ export default function Users() {
 
       {error && <div className="mb-4 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600">{error}</div>}
 
-      <form onSubmit={handleCreate} className="mb-6 rounded-xl border border-slate-200 bg-white p-4">
-        <h2 className="mb-3 text-sm font-semibold text-slate-700">Tambah Pengguna Baru</h2>
+      <button
+        onClick={() => { setFormError(null); setShowForm(true); }}
+        className="mb-4 rounded-lg bg-sky-500 px-4 py-2 font-medium text-white hover:bg-sky-600"
+      >
+        + Tambah Pengguna
+      </button>
 
-        {formError && <div className="mb-3 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600">{formError}</div>}
+      {showForm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+          <form onSubmit={handleCreate} className="max-h-[90vh] w-full max-w-sm overflow-y-auto rounded-2xl bg-white p-6">
+            <h2 className="mb-4 text-lg font-bold text-slate-900">Tambah Pengguna</h2>
 
-        <div className="mb-3 flex flex-wrap gap-2">
-          <div>
+            {formError && <div className="mb-3 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600">{formError}</div>}
+
             <label className="mb-1 block text-xs text-slate-500">Username</label>
-            <input value={username} onChange={(e) => setUsername(e.target.value)} className="w-40 rounded-lg border border-slate-300 px-3 py-2 outline-none focus:border-sky-500" />
-          </div>
-          <div>
+            <input value={username} onChange={(e) => setUsername(e.target.value)} className="mb-4 w-full rounded-lg border border-slate-300 px-3 py-2 outline-none focus:border-sky-500" autoFocus />
+
             <label className="mb-1 block text-xs text-slate-500">Nama lengkap</label>
-            <input value={fullName} onChange={(e) => setFullName(e.target.value)} className="w-48 rounded-lg border border-slate-300 px-3 py-2 outline-none focus:border-sky-500" />
-          </div>
-          <div>
-            <label className="mb-1 block text-xs text-slate-500">Password awal</label>
-            <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} className="w-40 rounded-lg border border-slate-300 px-3 py-2 outline-none focus:border-sky-500" />
-          </div>
-        </div>
+            <input value={fullName} onChange={(e) => setFullName(e.target.value)} className="mb-4 w-full rounded-lg border border-slate-300 px-3 py-2 outline-none focus:border-sky-500" />
 
-        <div className="mb-3">
-          <label className="mb-1 block text-xs text-slate-500">Role</label>
-          <div className="flex flex-wrap gap-2">
-            {roles.map((r) => (
-              <label key={r.code} className={`cursor-pointer rounded-full border px-3 py-1 text-xs font-medium ${selectedRoles.includes(r.code) ? 'border-sky-500 bg-sky-50 text-sky-700' : 'border-slate-300 text-slate-600'}`}>
-                <input type="checkbox" className="mr-1.5" checked={selectedRoles.includes(r.code)} onChange={() => toggleRole(r.code)} />
-                {r.name}
-              </label>
-            ))}
-          </div>
-        </div>
+            <label className="mb-1 block text-xs text-slate-500">Password awal (min. 8 karakter)</label>
+            <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} className="mb-4 w-full rounded-lg border border-slate-300 px-3 py-2 outline-none focus:border-sky-500" />
 
-        <button type="submit" disabled={creating} className="rounded-lg bg-sky-500 px-4 py-2 font-medium text-white hover:bg-sky-600 disabled:opacity-50">
-          {creating ? 'Menyimpan...' : 'Tambah Pengguna'}
-        </button>
-      </form>
+            <label className="mb-1 block text-xs text-slate-500">Role</label>
+            <div className="mb-6 flex flex-wrap gap-2">
+              {roles.map((r) => (
+                <label key={r.code} className={`cursor-pointer rounded-full border px-3 py-1 text-xs font-medium ${selectedRoles.includes(r.code) ? 'border-sky-500 bg-sky-50 text-sky-700' : 'border-slate-300 text-slate-600'}`}>
+                  <input type="checkbox" className="mr-1.5" checked={selectedRoles.includes(r.code)} onChange={() => toggleRole(r.code)} />
+                  {r.name}
+                </label>
+              ))}
+            </div>
+
+            <div className="flex gap-2">
+              <button type="button" onClick={() => setShowForm(false)} className="flex-1 rounded-lg bg-slate-100 py-2.5 text-slate-700 hover:bg-slate-200">
+                Batal
+              </button>
+              <button type="submit" disabled={creating} className="flex-1 rounded-lg bg-sky-500 py-2.5 font-medium text-white hover:bg-sky-600 disabled:opacity-50">
+                {creating ? 'Menyimpan...' : 'Tambah'}
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
 
       {loading ? (
         <p className="text-slate-500">Memuat...</p>
