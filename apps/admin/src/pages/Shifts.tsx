@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import Layout from '../components/Layout';
 import OutletSelector from '../components/OutletSelector';
 import { useOutletStore } from '../store/outlet';
+import { GridPagination, GridToolbar, SortHeader, useGrid } from '../components/grid';
 import { api, ApiError } from '../api/client';
 
 interface Shift {
@@ -42,6 +43,16 @@ export default function Shifts() {
   const [error, setError] = useState<string | null>(null);
   const [detail, setDetail] = useState<ShiftDetail | null>(null);
   const activeOutletId = useOutletStore((s) => s.activeOutletId);
+
+  const grid = useGrid(shifts, {
+    searchFields: [(s) => `#${s.shift_number}`, (s) => s.status],
+    sortValue: (s, key) =>
+      key === 'sales' ? Number(s.total_sales ?? 0)
+      : key === 'variance' ? Number(s.cash_variance ?? 0)
+      : key === 'number' ? s.shift_number
+      : s.opened_at,
+    initialSort: { key: 'opened', dir: 'desc' },
+  });
 
   async function load() {
     setLoading(true);
@@ -108,24 +119,25 @@ export default function Shifts() {
           </div>
         </div>
 
+        <GridToolbar grid={grid} placeholder="Cari nomor shift..." />
         <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white">
           <table className="w-full min-w-[820px] text-left text-sm">
             <thead className="bg-slate-50 text-slate-500">
               <tr>
-                <th className="px-4 py-3">Shift</th>
-                <th className="px-4 py-3">Dibuka</th>
+                <SortHeader grid={grid} sortKey="number">Shift</SortHeader>
+                <SortHeader grid={grid} sortKey="opened">Dibuka</SortHeader>
                 <th className="px-4 py-3">Ditutup</th>
                 <th className="px-4 py-3 text-right">Order</th>
-                <th className="px-4 py-3 text-right">Penjualan</th>
+                <SortHeader grid={grid} sortKey="sales" align="right">Penjualan</SortHeader>
                 <th className="px-4 py-3 text-right">Tunai</th>
                 <th className="px-4 py-3 text-right">Kas Awal</th>
-                <th className="px-4 py-3 text-right">Selisih</th>
+                <SortHeader grid={grid} sortKey="variance" align="right">Selisih</SortHeader>
                 <th className="px-4 py-3">Status</th>
                 <th className="px-4 py-3"></th>
               </tr>
             </thead>
             <tbody>
-              {shifts.map((s) => (
+              {grid.rows.map((s) => (
                 <tr key={s.id} className="border-t border-slate-100">
                   <td className="px-4 py-3 font-medium text-slate-900">#{s.shift_number}</td>
                   <td className="px-4 py-3 text-slate-600">{new Date(s.opened_at).toLocaleString('id-ID')}</td>
@@ -151,7 +163,7 @@ export default function Shifts() {
                   </td>
                 </tr>
               ))}
-              {shifts.length === 0 && (
+              {grid.rows.length === 0 && (
                 <tr>
                   <td colSpan={10} className="px-4 py-6 text-center text-slate-400">Belum ada shift</td>
                 </tr>
@@ -159,6 +171,7 @@ export default function Shifts() {
             </tbody>
           </table>
         </div>
+        <GridPagination grid={grid} />
         </>
       )}
 

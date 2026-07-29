@@ -3,6 +3,7 @@ import { formatRupiah } from '@fnb/shared';
 import Layout from '../components/Layout';
 import OutletSelector from '../components/OutletSelector';
 import { useOutletStore } from '../store/outlet';
+import { GridPagination, GridToolbar, SortHeader, useGrid } from '../components/grid';
 import { api, ApiError } from '../api/client';
 
 interface Ingredient {
@@ -20,6 +21,15 @@ export default function Ingredients() {
   const activeOutletId = useOutletStore((s) => s.activeOutletId);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
+
+  const grid = useGrid(ingredients, {
+    searchFields: [(i) => i.name, (i) => i.unit],
+    sortValue: (i, key) =>
+      key === 'stock' ? Number(i.current_stock)
+      : key === 'cost' ? Number(i.cost_per_unit)
+      : i.name,
+    initialSort: { key: 'name' },
+  });
 
   const [name, setName] = useState('');
   const [unit, setUnit] = useState('');
@@ -116,19 +126,21 @@ export default function Ingredients() {
       {loading ? (
         <p className="text-slate-500">Memuat...</p>
       ) : (
+        <>
+        <GridToolbar grid={grid} placeholder="Cari nama bahan..." />
         <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white">
           <table className="w-full min-w-[560px] text-left text-sm">
             <thead className="bg-slate-50 text-slate-500">
               <tr>
-                <th className="px-4 py-3">Nama</th>
-                <th className="px-4 py-3">Stok saat ini</th>
+                <SortHeader grid={grid} sortKey="name">Nama</SortHeader>
+                <SortHeader grid={grid} sortKey="stock">Stok saat ini</SortHeader>
                 <th className="px-4 py-3">Stok minimum</th>
-                <th className="px-4 py-3">Harga/satuan</th>
+                <SortHeader grid={grid} sortKey="cost">Harga/satuan</SortHeader>
                 <th className="px-4 py-3"></th>
               </tr>
             </thead>
             <tbody>
-              {ingredients.map((i) => {
+              {grid.rows.map((i) => {
                 const low = Number(i.current_stock) <= Number(i.min_stock);
                 return (
                   <tr key={i.id} className="border-t border-slate-100">
@@ -149,16 +161,18 @@ export default function Ingredients() {
                   </tr>
                 );
               })}
-              {ingredients.length === 0 && (
+              {grid.rows.length === 0 && (
                 <tr>
                   <td colSpan={5} className="px-4 py-6 text-center text-slate-400">
-                    Belum ada bahan
+                    {grid.totalRows === 0 ? 'Belum ada bahan' : 'Tidak ada bahan yang cocok'}
                   </td>
                 </tr>
               )}
             </tbody>
           </table>
         </div>
+        <GridPagination grid={grid} />
+        </>
       )}
 
       {adjustTarget && (

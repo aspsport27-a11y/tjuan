@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import Layout from '../components/Layout';
 import OutletSelector from '../components/OutletSelector';
 import { useOutletStore } from '../store/outlet';
+import { GridPagination, GridToolbar, SortHeader, useGrid } from '../components/grid';
 import { api, ApiError } from '../api/client';
 
 interface ProductRow {
@@ -40,6 +41,19 @@ export default function ProductReport() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const activeOutletId = useOutletStore((s) => s.activeOutletId);
+
+  // Sorting is the point of this report: "best seller" and "best margin" are
+  // different questions and the owner needs both.
+  const grid = useGrid(report?.products ?? [], {
+    searchFields: [(p) => p.name],
+    sortValue: (p, key) =>
+      key === 'revenue' ? Number(p.revenue)
+      : key === 'margin' ? Number(p.margin ?? 0)
+      : key === 'name' ? p.name
+      : Number(p.qty_sold),
+    initialSort: { key: 'qty', dir: 'desc' },
+    pageSize: 25,
+  });
 
   async function load() {
     setLoading(true);
@@ -122,9 +136,10 @@ export default function ProductReport() {
             </div>
           ) : (
             <>
+              <GridToolbar grid={grid} placeholder="Cari nama produk..." />
               {/* Mobile: cards. Desktop: table. */}
               <div className="space-y-3 md:hidden">
-                {report.products.map((p, idx) => {
+                {grid.rows.map((p, idx) => {
                   const margin = Number(p.margin ?? 0);
                   return (
                     <div key={p.menu_item_id ?? idx} className="rounded-xl border border-slate-200 bg-white p-4">
@@ -163,16 +178,16 @@ export default function ProductReport() {
                   <thead className="bg-slate-50 text-slate-500">
                     <tr>
                       <th className="px-4 py-3">#</th>
-                      <th className="px-4 py-3">Produk</th>
-                      <th className="px-4 py-3 text-right">Terjual</th>
+                      <SortHeader grid={grid} sortKey="name">Produk</SortHeader>
+                      <SortHeader grid={grid} sortKey="qty" align="right">Terjual</SortHeader>
                       <th className="px-4 py-3">Porsi</th>
-                      <th className="px-4 py-3 text-right">Penjualan</th>
+                      <SortHeader grid={grid} sortKey="revenue" align="right">Penjualan</SortHeader>
                       {report.showsCost && <th className="px-4 py-3 text-right">HPP</th>}
-                      {report.showsCost && <th className="px-4 py-3 text-right">Margin</th>}
+                      {report.showsCost && <SortHeader grid={grid} sortKey="margin" align="right">Margin</SortHeader>}
                     </tr>
                   </thead>
                   <tbody>
-                    {report.products.map((p, idx) => {
+                    {grid.rows.map((p, idx) => {
                       const qty = Number(p.qty_sold);
                       const margin = Number(p.margin ?? 0);
                       const marginPct = Number(p.revenue) > 0 ? Math.round((margin / Number(p.revenue)) * 100) : 0;
@@ -203,6 +218,8 @@ export default function ProductReport() {
                   </tbody>
                 </table>
               </div>
+
+              <GridPagination grid={grid} />
 
               {report.showsCost && report.products.some((p) => p.no_recipe) && (
                 <p className="mt-3 text-xs text-slate-500">

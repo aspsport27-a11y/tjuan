@@ -3,6 +3,7 @@ import { formatRupiah } from '@fnb/shared';
 import Layout from '../components/Layout';
 import OutletSelector from '../components/OutletSelector';
 import { useOutletStore } from '../store/outlet';
+import { GridPagination, GridToolbar, SortHeader, useGrid } from '../components/grid';
 import { api, ApiError } from '../api/client';
 
 interface Category {
@@ -13,6 +14,7 @@ interface Category {
 interface MenuItem {
   id: string;
   category_id: string | null;
+  sku: string | null;
   name: string;
   price: string;
   track_stock: boolean;
@@ -40,6 +42,13 @@ export default function MenuItems() {
   const activeOutletId = useOutletStore((s) => s.activeOutletId);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
+
+  const grid = useGrid(items, {
+    searchFields: [(i) => i.name, (i) => i.sku],
+    sortValue: (i, key) =>
+      key === 'price' ? Number(i.price) : key === 'status' ? (i.is_active ? 1 : 0) : i.name,
+    initialSort: { key: 'name' },
+  });
 
   const [name, setName] = useState('');
   const [price, setPrice] = useState('');
@@ -154,19 +163,21 @@ export default function MenuItems() {
       {loading ? (
         <p className="text-slate-500">Memuat...</p>
       ) : (
+        <>
+        <GridToolbar grid={grid} placeholder="Cari nama menu / SKU..." />
         <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white">
           <table className="w-full min-w-[560px] text-left text-sm">
             <thead className="bg-slate-50 text-slate-500">
               <tr>
-                <th className="px-4 py-3">Nama</th>
-                <th className="px-4 py-3">Harga</th>
+                <SortHeader grid={grid} sortKey="name">Nama</SortHeader>
+                <SortHeader grid={grid} sortKey="price">Harga</SortHeader>
                 <th className="px-4 py-3">Stok bahan</th>
-                <th className="px-4 py-3">Status</th>
+                <SortHeader grid={grid} sortKey="status">Status</SortHeader>
                 <th className="px-4 py-3"></th>
               </tr>
             </thead>
             <tbody>
-              {items.map((it) => (
+              {grid.rows.map((it) => (
                 <tr key={it.id} className="border-t border-slate-100">
                   <td className="px-4 py-3 font-medium text-slate-900">{it.name}</td>
                   <td className="px-4 py-3 text-slate-700">{formatRupiah(Number(it.price))}</td>
@@ -190,16 +201,18 @@ export default function MenuItems() {
                   </td>
                 </tr>
               ))}
-              {items.length === 0 && (
+              {grid.rows.length === 0 && (
                 <tr>
                   <td colSpan={5} className="px-4 py-6 text-center text-slate-400">
-                    Belum ada menu
+                    {grid.totalRows === 0 ? 'Belum ada menu' : 'Tidak ada menu yang cocok'}
                   </td>
                 </tr>
               )}
             </tbody>
           </table>
         </div>
+        <GridPagination grid={grid} />
+        </>
       )}
 
       {recipeItemId && (

@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import Layout from '../components/Layout';
 import OutletSelector from '../components/OutletSelector';
 import { useOutletStore } from '../store/outlet';
+import { GridPagination, GridToolbar, SortHeader, useGrid } from '../components/grid';
 import { api, ApiError } from '../api/client';
 
 interface Expense {
@@ -58,6 +59,12 @@ export default function Expenses() {
   const [creating, setCreating] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
   const [showForm, setShowForm] = useState(false);
+
+  const grid = useGrid(expenses, {
+    searchFields: [(e) => CATEGORY_LABELS[e.category] ?? e.category, (e) => e.notes, (e) => e.recorded_by_name],
+    sortValue: (e, key) => (key === 'amount' ? Number(e.amount) : key === 'category' ? e.category : e.expense_date),
+    initialSort: { key: 'date', dir: 'desc' },
+  });
 
   const categories = tab === 'cash_drawer' ? TILL_CATEGORIES : OUTLET_CATEGORIES;
 
@@ -221,20 +228,22 @@ export default function Expenses() {
       {loading ? (
         <p className="text-slate-500">Memuat...</p>
       ) : (
+        <>
+        <GridToolbar grid={grid} placeholder="Cari kategori / catatan..." />
         <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white">
           <table className="w-full min-w-[560px] text-left text-sm">
             <thead className="bg-slate-50 text-slate-500">
               <tr>
-                <th className="px-4 py-3">Tanggal</th>
-                <th className="px-4 py-3">Kategori</th>
-                <th className="px-4 py-3">Jumlah</th>
+                <SortHeader grid={grid} sortKey="date">Tanggal</SortHeader>
+                <SortHeader grid={grid} sortKey="category">Kategori</SortHeader>
+                <SortHeader grid={grid} sortKey="amount">Jumlah</SortHeader>
                 <th className="px-4 py-3">Catatan</th>
                 <th className="px-4 py-3">Dicatat oleh</th>
                 <th className="px-4 py-3"></th>
               </tr>
             </thead>
             <tbody>
-              {expenses.map((e) => (
+              {grid.rows.map((e) => (
                 <tr key={e.id} className="border-t border-slate-100">
                   <td className="px-4 py-3 text-slate-600">{new Date(e.expense_date).toLocaleDateString('id-ID')}</td>
                   <td className="px-4 py-3">{CATEGORY_LABELS[e.category] ?? e.category}</td>
@@ -246,7 +255,7 @@ export default function Expenses() {
                   </td>
                 </tr>
               ))}
-              {expenses.length === 0 && (
+              {grid.rows.length === 0 && (
                 <tr>
                   <td colSpan={6} className="px-4 py-6 text-center text-slate-400">Tidak ada data di periode ini</td>
                 </tr>
@@ -254,6 +263,8 @@ export default function Expenses() {
             </tbody>
           </table>
         </div>
+        <GridPagination grid={grid} />
+        </>
       )}
     </Layout>
   );

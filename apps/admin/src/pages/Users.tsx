@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import Layout from '../components/Layout';
 import OutletSelector from '../components/OutletSelector';
 import { useOutletStore } from '../store/outlet';
+import { GridPagination, GridToolbar, SortHeader, useGrid } from '../components/grid';
 import { api, ApiError } from '../api/client';
 
 interface UserRow {
@@ -36,6 +37,12 @@ export default function Users() {
   const [resetTarget, setResetTarget] = useState<UserRow | null>(null);
   const [editTarget, setEditTarget] = useState<UserRow | null>(null);
   const activeOutletId = useOutletStore((s) => s.activeOutletId);
+
+  const grid = useGrid(users, {
+    searchFields: [(u) => u.username, (u) => u.fullName, (u) => u.roles.join(' ')],
+    sortValue: (u, key) => (key === 'status' ? (u.isActive ? 1 : 0) : key === 'fullName' ? u.fullName : u.username),
+    initialSort: { key: 'username' },
+  });
 
   async function load() {
     setLoading(true);
@@ -151,19 +158,21 @@ export default function Users() {
       {loading ? (
         <p className="text-slate-500">Memuat...</p>
       ) : (
+        <>
+        <GridToolbar grid={grid} placeholder="Cari username / nama / role..." />
         <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white">
           <table className="w-full min-w-[560px] text-left text-sm">
             <thead className="bg-slate-50 text-slate-500">
               <tr>
-                <th className="px-4 py-3">Username</th>
-                <th className="px-4 py-3">Nama</th>
+                <SortHeader grid={grid} sortKey="username">Username</SortHeader>
+                <SortHeader grid={grid} sortKey="fullName">Nama</SortHeader>
                 <th className="px-4 py-3">Role</th>
-                <th className="px-4 py-3">Status</th>
+                <SortHeader grid={grid} sortKey="status">Status</SortHeader>
                 <th className="px-4 py-3"></th>
               </tr>
             </thead>
             <tbody>
-              {users.map((u) => (
+              {grid.rows.map((u) => (
                 <tr key={u.id} className="border-t border-slate-100">
                   <td className="px-4 py-3 font-medium text-slate-900">{u.username}</td>
                   <td className="px-4 py-3 text-slate-700">{u.fullName}</td>
@@ -188,14 +197,18 @@ export default function Users() {
                   </td>
                 </tr>
               ))}
-              {users.length === 0 && (
+              {grid.rows.length === 0 && (
                 <tr>
-                  <td colSpan={5} className="px-4 py-6 text-center text-slate-400">Belum ada pengguna</td>
+                  <td colSpan={5} className="px-4 py-6 text-center text-slate-400">
+                    {grid.totalRows === 0 ? 'Belum ada pengguna' : 'Tidak ada pengguna yang cocok'}
+                  </td>
                 </tr>
               )}
             </tbody>
           </table>
         </div>
+        <GridPagination grid={grid} />
+        </>
       )}
 
       {resetTarget && (

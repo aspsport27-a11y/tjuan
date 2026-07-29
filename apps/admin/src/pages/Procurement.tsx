@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import Layout from '../components/Layout';
 import OutletSelector from '../components/OutletSelector';
 import { useOutletStore } from '../store/outlet';
+import { GridPagination, GridToolbar, SortHeader, useGrid } from '../components/grid';
 import { api, ApiError } from '../api/client';
 
 interface Supplier {
@@ -118,6 +119,15 @@ function PurchaseOrdersTab({ activeOutletId }: { activeOutletId: string | null }
   const [showCreate, setShowCreate] = useState(false);
   const [detail, setDetail] = useState<PoDetail | null>(null);
 
+  const grid = useGrid(orders, {
+    searchFields: [(o) => o.po_number, (o) => o.supplier_name, (o) => o.notes],
+    sortValue: (o, key) =>
+      key === 'total' ? Number(o.total_amount)
+      : key === 'supplier' ? o.supplier_name
+      : o.order_date,
+    initialSort: { key: 'date', dir: 'desc' },
+  });
+
   async function load() {
     setLoading(true);
     try {
@@ -192,21 +202,23 @@ function PurchaseOrdersTab({ activeOutletId }: { activeOutletId: string | null }
       {loading ? (
         <p className="text-slate-500">Memuat...</p>
       ) : (
+        <>
+        <GridToolbar grid={grid} placeholder="Cari no. PO / supplier..." />
         <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white">
           <table className="w-full min-w-[560px] text-left text-sm">
             <thead className="bg-slate-50 text-slate-500">
               <tr>
                 <th className="px-4 py-3">No. PO</th>
-                <th className="px-4 py-3">Tanggal</th>
-                <th className="px-4 py-3">Supplier</th>
-                <th className="px-4 py-3">Total</th>
+                <SortHeader grid={grid} sortKey="date">Tanggal</SortHeader>
+                <SortHeader grid={grid} sortKey="supplier">Supplier</SortHeader>
+                <SortHeader grid={grid} sortKey="total">Total</SortHeader>
                 <th className="px-4 py-3">Status</th>
                 <th className="px-4 py-3">Bayar</th>
                 <th className="px-4 py-3"></th>
               </tr>
             </thead>
             <tbody>
-              {orders.map((po) => (
+              {grid.rows.map((po) => (
                 <tr key={po.id} className="border-t border-slate-100">
                   <td className="px-4 py-3 font-mono text-xs text-slate-600">{po.po_number}</td>
                   <td className="px-4 py-3 text-slate-600">{new Date(po.order_date).toLocaleDateString('id-ID')}</td>
@@ -231,14 +243,18 @@ function PurchaseOrdersTab({ activeOutletId }: { activeOutletId: string | null }
                   </td>
                 </tr>
               ))}
-              {orders.length === 0 && (
+              {grid.rows.length === 0 && (
                 <tr>
-                  <td colSpan={7} className="px-4 py-6 text-center text-slate-400">Belum ada purchase order</td>
+                  <td colSpan={7} className="px-4 py-6 text-center text-slate-400">
+                    {grid.totalRows === 0 ? 'Belum ada purchase order' : 'Tidak ada PO yang cocok'}
+                  </td>
                 </tr>
               )}
             </tbody>
           </table>
         </div>
+        <GridPagination grid={grid} />
+        </>
       )}
 
       {showCreate && (
