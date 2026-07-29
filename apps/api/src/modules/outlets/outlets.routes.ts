@@ -77,4 +77,26 @@ export default async function outletsRoutes(fastify: FastifyInstance) {
     if (rows.length === 0) return reply.code(404).send({ error: 'not_found' });
     return reply.send({ outlet: rows[0] });
   });
+
+  // Real delete, not soft-delete -- but only succeeds if nothing references
+  // this outlet (menu, users, orders, shifts, ...). Rely on the FK violation
+  // rather than enumerating every dependent table by hand, so this stays
+  // correct as the schema grows.
+  fastify.delete('/outlets/:id', { preHandler: requirePermission('outlet.manage') }, async (request, reply) => {
+    const { id } = request.params as { id: string };
+    try {
+      const { rowCount } = await pool.query(`DELETE FROM outlets WHERE id = $1`, [id]);
+      if (rowCount === 0) return reply.code(404).send({ error: 'not_found' });
+      return reply.code(204).send();
+    } catch (err) {
+      const pgErr = err as { code?: string };
+      if (pgErr.code === '23503') {
+        return reply.code(409).send({
+          error: 'has_dependents',
+          message: 'Outlet ini masih punya data terkait (menu, pengguna, order, dll) -- nonaktifkan saja, tidak bisa dihapus.',
+        });
+      }
+      throw err;
+    }
+  });
 }
