@@ -93,17 +93,28 @@ export default async function reportsRoutes(fastify: FastifyInstance) {
            AND o.created_at < $3::date + interval '1 day'
          GROUP BY oi.menu_item_id
        ),
+       -- Cost source is per menu item: 'purchase_price' items carry their own
+       -- manual cost, 'recipe' items still cost from the BOM. no_recipe only
+       -- flags the genuine gap -- a 'recipe' item nobody built a recipe for --
+       -- not a 'purchase_price' item, which is costed on purpose.
        costs AS (
-         SELECT ri.menu_item_id, SUM(ri.quantity * i.cost_per_unit) AS unit_cost
-         FROM recipe_items ri
-         JOIN ingredients i ON i.id = ri.ingredient_id
-         GROUP BY ri.menu_item_id
+         SELECT mi.id AS menu_item_id,
+                CASE WHEN mi.hpp_source = 'purchase_price' THEN COALESCE(mi.purchase_cost, 0)
+                     ELSE COALESCE(rc.unit_cost, 0) END AS unit_cost,
+                (mi.hpp_source = 'recipe' AND rc.unit_cost IS NULL) AS no_recipe
+         FROM menu_items mi
+         LEFT JOIN (
+           SELECT ri.menu_item_id, SUM(ri.quantity * i.cost_per_unit) AS unit_cost
+           FROM recipe_items ri
+           JOIN ingredients i ON i.id = ri.ingredient_id
+           GROUP BY ri.menu_item_id
+         ) rc ON rc.menu_item_id = mi.id
        )
        SELECT s.menu_item_id, s.name, s.qty_sold, s.revenue,
               COALESCE(c.unit_cost, 0)              AS unit_cost,
               COALESCE(c.unit_cost, 0) * s.qty_sold AS total_cost,
               s.revenue - COALESCE(c.unit_cost, 0) * s.qty_sold AS margin,
-              (c.unit_cost IS NULL)                 AS no_recipe
+              COALESCE(c.no_recipe, false)          AS no_recipe
        FROM sold s
        LEFT JOIN costs c ON c.menu_item_id = s.menu_item_id
        ORDER BY s.qty_sold DESC, s.revenue DESC`,

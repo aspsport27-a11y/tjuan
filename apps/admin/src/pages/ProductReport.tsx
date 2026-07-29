@@ -145,8 +145,8 @@ export default function ProductReport() {
 
           {report.showsCost && (
             <p className="mb-4 rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-700">
-              HPP dihitung dari resep tiap menu dikali <strong>harga bahan saat ini</strong>, bukan harga saat transaksi terjadi.
-              Untuk periode lama angkanya adalah perkiraan dengan harga hari ini. Menu tanpa resep dihitung HPP 0.
+              HPP dihitung dari resep (dikali <strong>harga bahan saat ini</strong>) atau dari harga beli langsung, tergantung pengaturan tiap menu.
+              Untuk periode lama angkanya adalah perkiraan dengan harga hari ini. Menu bertipe resep yang belum diisi resepnya dihitung HPP 0.
             </p>
           )}
 

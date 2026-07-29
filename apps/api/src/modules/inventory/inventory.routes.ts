@@ -202,13 +202,17 @@ export default async function inventoryRoutes(fastify: FastifyInstance) {
     if (!outletId) return;
     const { id } = request.params as { id: string };
     const { rows } = await pool.query(
-      `SELECT COALESCE(SUM(ri.quantity * i.cost_per_unit), 0) AS cost
-       FROM recipe_items ri
-       JOIN ingredients i ON i.id = ri.ingredient_id
-       JOIN menu_items mi ON mi.id = ri.menu_item_id
-       WHERE ri.menu_item_id = $1 AND mi.outlet_id = $2`,
+      `SELECT CASE
+                WHEN mi.hpp_source = 'purchase_price' THEN COALESCE(mi.purchase_cost, 0)
+                ELSE COALESCE((SELECT SUM(ri.quantity * i.cost_per_unit)
+                                FROM recipe_items ri JOIN ingredients i ON i.id = ri.ingredient_id
+                                WHERE ri.menu_item_id = mi.id), 0)
+              END AS cost
+       FROM menu_items mi
+       WHERE mi.id = $1 AND mi.outlet_id = $2`,
       [id, outletId],
     );
+    if (rows.length === 0) return reply.code(404).send({ error: 'not_found' });
     return reply.send({ menuItemId: id, estimatedCost: Number(rows[0].cost) });
   });
 }

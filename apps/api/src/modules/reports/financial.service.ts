@@ -42,9 +42,12 @@ export async function buildOutletPnl(outletId: string, outletName: string, from:
       [outletId, from, to],
     ),
     pool.query(
-      `SELECT COALESCE(SUM(oi.quantity * COALESCE(c.unit_cost, 0)), 0) AS cogs
+      `SELECT COALESCE(SUM(oi.quantity *
+                CASE WHEN mi.hpp_source = 'purchase_price' THEN COALESCE(mi.purchase_cost, 0)
+                     ELSE COALESCE(c.unit_cost, 0) END), 0) AS cogs
        FROM order_items oi
        JOIN orders o ON o.id = oi.order_id
+       JOIN menu_items mi ON mi.id = oi.menu_item_id
        LEFT JOIN (
          SELECT ri.menu_item_id, SUM(ri.quantity * i.cost_per_unit) AS unit_cost
          FROM recipe_items ri JOIN ingredients i ON i.id = ri.ingredient_id

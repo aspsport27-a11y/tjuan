@@ -19,6 +19,8 @@ interface MenuItem {
   price: string;
   track_stock: boolean;
   is_active: boolean;
+  hpp_source: 'recipe' | 'purchase_price';
+  purchase_cost: string | null;
 }
 
 interface Ingredient {
@@ -54,8 +56,11 @@ export default function MenuItems() {
   const [price, setPrice] = useState('');
   const [categoryId, setCategoryId] = useState('');
   const [trackStock, setTrackStock] = useState(true);
+  const [hppSource, setHppSource] = useState<'recipe' | 'purchase_price'>('recipe');
+  const [purchaseCost, setPurchaseCost] = useState('');
 
   const [recipeItemId, setRecipeItemId] = useState<string | null>(null);
+  const [editItem, setEditItem] = useState<MenuItem | null>(null);
 
   async function load() {
     setLoading(true);
@@ -81,6 +86,7 @@ export default function MenuItems() {
   async function handleCreate(e: React.FormEvent) {
     e.preventDefault();
     if (!name.trim() || !price) return;
+    if (hppSource === 'purchase_price' && !purchaseCost) return;
     setError(null);
     try {
       await api.post('/menu-items', {
@@ -88,10 +94,14 @@ export default function MenuItems() {
         price: Number(price),
         categoryId: categoryId || null,
         trackStock,
+        hppSource,
+        purchaseCost: hppSource === 'purchase_price' ? Number(purchaseCost) : undefined,
       });
       setName('');
       setPrice('');
       setCategoryId('');
+      setHppSource('recipe');
+      setPurchaseCost('');
       setShowForm(false);
       await load();
     } catch (err) {
@@ -152,10 +162,12 @@ export default function MenuItems() {
               ))}
             </select>
 
-            <label className="mb-6 flex items-center gap-2 text-sm text-slate-600">
+            <label className="mb-4 flex items-center gap-2 text-sm text-slate-600">
               <input type="checkbox" checked={trackStock} onChange={(e) => setTrackStock(e.target.checked)} />
               Potong stok bahan otomatis saat terjual
             </label>
+
+            <HppSourceFields hppSource={hppSource} setHppSource={setHppSource} purchaseCost={purchaseCost} setPurchaseCost={setPurchaseCost} />
 
             <div className="flex gap-2">
               <button type="button" onClick={() => setShowForm(false)} className="flex-1 rounded-lg bg-slate-100 py-2.5 text-slate-700 hover:bg-slate-200">
@@ -197,6 +209,9 @@ export default function MenuItems() {
                     </span>
                   </td>
                   <td className="space-x-3 px-4 py-3 text-right">
+                    <button onClick={() => setEditItem(it)} className="text-xs text-slate-600 hover:text-slate-900">
+                      Edit
+                    </button>
                     {it.track_stock && (
                       <button onClick={() => setRecipeItemId(it.id)} className="text-xs text-sky-600 hover:text-sky-800">
                         Resep
@@ -231,7 +246,155 @@ export default function MenuItems() {
       {recipeItemId && (
         <RecipeModal menuItemId={recipeItemId} menuItemName={items.find((i) => i.id === recipeItemId)?.name ?? ''} onClose={() => setRecipeItemId(null)} />
       )}
+
+      {editItem && (
+        <EditModal
+          item={editItem}
+          categories={categories}
+          onClose={() => setEditItem(null)}
+          onSaved={() => {
+            setEditItem(null);
+            load();
+          }}
+        />
+      )}
     </Layout>
+  );
+}
+
+// Shared by the create form and the edit modal: pick whether HPP comes from
+// the recipe (BOM) or a manually entered purchase cost -- resale items like
+// bottled drinks have no recipe, so forcing them through one path silently
+// reported HPP = 0 and overstated their margin in every report.
+function HppSourceFields({
+  hppSource,
+  setHppSource,
+  purchaseCost,
+  setPurchaseCost,
+}: {
+  hppSource: 'recipe' | 'purchase_price';
+  setHppSource: (v: 'recipe' | 'purchase_price') => void;
+  purchaseCost: string;
+  setPurchaseCost: (v: string) => void;
+}) {
+  return (
+    <div className="mb-6">
+      <label className="mb-1 block text-xs text-slate-500">Hitung HPP dari</label>
+      <div className="mb-2 flex gap-2">
+        <button
+          type="button"
+          onClick={() => setHppSource('recipe')}
+          className={`flex-1 rounded-lg border px-3 py-2 text-sm font-medium ${hppSource === 'recipe' ? 'border-sky-500 bg-sky-50 text-sky-700' : 'border-slate-300 text-slate-600'}`}
+        >
+          Resep
+        </button>
+        <button
+          type="button"
+          onClick={() => setHppSource('purchase_price')}
+          className={`flex-1 rounded-lg border px-3 py-2 text-sm font-medium ${hppSource === 'purchase_price' ? 'border-sky-500 bg-sky-50 text-sky-700' : 'border-slate-300 text-slate-600'}`}
+        >
+          Harga Beli
+        </button>
+      </div>
+      {hppSource === 'recipe' ? (
+        <p className="text-xs text-slate-400">HPP dihitung dari bahan di resep (isi lewat tombol "Resep").</p>
+      ) : (
+        <>
+          <label className="mb-1 block text-xs text-slate-500">Harga beli per porsi/unit (Rp)</label>
+          <input
+            type="number"
+            value={purchaseCost}
+            onChange={(e) => setPurchaseCost(e.target.value)}
+            placeholder="mis. barang dijual kembali tanpa resep"
+            className="w-full rounded-lg border border-slate-300 px-3 py-2 outline-none focus:border-sky-500"
+          />
+        </>
+      )}
+    </div>
+  );
+}
+
+function EditModal({
+  item,
+  categories,
+  onClose,
+  onSaved,
+}: {
+  item: MenuItem;
+  categories: Category[];
+  onClose: () => void;
+  onSaved: () => void;
+}) {
+  const [name, setName] = useState(item.name);
+  const [price, setPrice] = useState(item.price);
+  const [categoryId, setCategoryId] = useState(item.category_id ?? '');
+  const [trackStock, setTrackStock] = useState(item.track_stock);
+  const [hppSource, setHppSource] = useState<'recipe' | 'purchase_price'>(item.hpp_source ?? 'recipe');
+  const [purchaseCost, setPurchaseCost] = useState(item.purchase_cost ?? '');
+  const [error, setError] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
+
+  async function save(e: React.FormEvent) {
+    e.preventDefault();
+    if (!name.trim() || !price) return;
+    if (hppSource === 'purchase_price' && !purchaseCost) return;
+    setError(null);
+    setSaving(true);
+    try {
+      await api.put(`/menu-items/${item.id}`, {
+        name: name.trim(),
+        price: Number(price),
+        categoryId: categoryId || null,
+        trackStock,
+        hppSource,
+        purchaseCost: hppSource === 'purchase_price' ? Number(purchaseCost) : undefined,
+      });
+      onSaved();
+    } catch (err) {
+      if (err instanceof ApiError) setError(err.message);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+      <form onSubmit={save} className="max-h-[90vh] w-full max-w-sm overflow-y-auto rounded-2xl bg-white p-6">
+        <h2 className="mb-4 text-lg font-bold text-slate-900">Edit Menu</h2>
+
+        {error && <div className="mb-3 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600">{error}</div>}
+
+        <label className="mb-1 block text-xs text-slate-500">Nama menu</label>
+        <input value={name} onChange={(e) => setName(e.target.value)} className="mb-4 w-full rounded-lg border border-slate-300 px-3 py-2 outline-none focus:border-sky-500" autoFocus />
+
+        <label className="mb-1 block text-xs text-slate-500">Harga (Rp)</label>
+        <input type="number" value={price} onChange={(e) => setPrice(e.target.value)} className="mb-4 w-full rounded-lg border border-slate-300 px-3 py-2 outline-none focus:border-sky-500" />
+
+        <label className="mb-1 block text-xs text-slate-500">Kategori</label>
+        <select value={categoryId} onChange={(e) => setCategoryId(e.target.value)} className="mb-4 w-full rounded-lg border border-slate-300 px-3 py-2 outline-none focus:border-sky-500">
+          <option value="">- Tanpa kategori -</option>
+          {categories.map((c) => (
+            <option key={c.id} value={c.id}>{c.name}</option>
+          ))}
+        </select>
+
+        <label className="mb-4 flex items-center gap-2 text-sm text-slate-600">
+          <input type="checkbox" checked={trackStock} onChange={(e) => setTrackStock(e.target.checked)} />
+          Potong stok bahan otomatis saat terjual
+        </label>
+
+        <HppSourceFields hppSource={hppSource} setHppSource={setHppSource} purchaseCost={purchaseCost} setPurchaseCost={setPurchaseCost} />
+
+        <div className="flex gap-2">
+          <button type="button" onClick={onClose} className="flex-1 rounded-lg bg-slate-100 py-2.5 text-slate-700 hover:bg-slate-200">
+            Batal
+          </button>
+          <button type="submit" disabled={saving} className="flex-1 rounded-lg bg-sky-500 py-2.5 font-medium text-white hover:bg-sky-600 disabled:opacity-50">
+            {saving ? 'Menyimpan...' : 'Simpan'}
+          </button>
+        </div>
+      </form>
+    </div>
   );
 }
 
