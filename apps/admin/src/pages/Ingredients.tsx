@@ -67,7 +67,10 @@ export default function Ingredients() {
 
   return (
     <Layout>
-      <h1 className="mb-6 text-2xl font-bold text-slate-900">Bahan & Stok</h1>
+      <div className="mb-6 flex items-center justify-between">
+        <h1 className="text-2xl font-bold text-slate-900">Bahan & Stok</h1>
+        <OutletSelector />
+      </div>
 
       {error && <div className="mb-4 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600">{error}</div>}
 
