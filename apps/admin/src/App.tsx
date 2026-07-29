@@ -5,6 +5,9 @@ import MenuItems from './pages/MenuItems';
 import Ingredients from './pages/Ingredients';
 import Users from './pages/Users';
 import Outlets from './pages/Outlets';
+import Expenses from './pages/Expenses';
+import Shifts from './pages/Shifts';
+import DailyReport from './pages/DailyReport';
 import ChangePassword from './pages/ChangePassword';
 import RequireAuth from './components/RequireAuth';
 
@@ -49,6 +52,30 @@ export default function App() {
         element={
           <RequireAuth>
             <Outlets />
+          </RequireAuth>
+        }
+      />
+      <Route
+        path="/expenses"
+        element={
+          <RequireAuth>
+            <Expenses />
+          </RequireAuth>
+        }
+      />
+      <Route
+        path="/shifts"
+        element={
+          <RequireAuth>
+            <Shifts />
+          </RequireAuth>
+        }
+      />
+      <Route
+        path="/daily-report"
+        element={
+          <RequireAuth>
+            <DailyReport />
           </RequireAuth>
         }
       />

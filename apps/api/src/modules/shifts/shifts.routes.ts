@@ -31,6 +31,27 @@ export default async function shiftsRoutes(fastify: FastifyInstance) {
     return reply.send({ shifts: rows });
   });
 
+  fastify.get('/shifts/:id', { preHandler: requirePermission('shift.manage', 'report.view_business') }, async (request, reply) => {
+    const outletId = resolveOutletId(request, reply);
+    if (!outletId) return;
+    const { id } = request.params as { id: string };
+
+    const shiftRes = await pool.query(`SELECT * FROM shifts WHERE id = $1 AND outlet_id = $2`, [id, outletId]);
+    if (shiftRes.rows.length === 0) return reply.code(404).send({ error: 'not_found' });
+
+    const salesRes = await pool.query(
+      `SELECT method, COALESCE(SUM(amount), 0) AS total, COUNT(*) AS count
+       FROM payments WHERE shift_id = $1 GROUP BY method ORDER BY method`,
+      [id],
+    );
+    const expensesRes = await pool.query(
+      `SELECT id, category, amount, notes, recorded_at FROM outlet_expenses WHERE shift_id = $1 ORDER BY recorded_at`,
+      [id],
+    );
+
+    return reply.send({ shift: shiftRes.rows[0], salesByMethod: salesRes.rows, expenses: expensesRes.rows });
+  });
+
   fastify.post('/shifts/open', { preHandler: requirePermission('shift.manage') }, async (request, reply) => {
     const outletId = resolveOutletId(request, reply);
     if (!outletId) return;

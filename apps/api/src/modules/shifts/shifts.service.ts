@@ -18,15 +18,15 @@ export async function getOpenShiftId(db: Pool | PoolClient, outletId: string): P
   return rows[0]?.id ?? null;
 }
 
-/**
- * Cash expected in the drawer: opening float + cash payments recorded this
- * shift. Outlet expenses (Phase B) will subtract from this once that table
- * exists -- not yet, so this is intentionally opening + cash-in only.
- */
+/** Cash expected in the drawer: opening float + cash payments − outlet expenses recorded this shift. */
 export async function computeExpectedCash(db: Pool | PoolClient, shiftId: string, openingCash: number): Promise<number> {
-  const { rows } = await db.query(
+  const { rows: cashRows } = await db.query(
     `SELECT COALESCE(SUM(amount), 0) AS total FROM payments WHERE shift_id = $1 AND method = 'cash'`,
     [shiftId],
   );
-  return Number(openingCash) + Number(rows[0].total);
+  const { rows: expenseRows } = await db.query(
+    `SELECT COALESCE(SUM(amount), 0) AS total FROM outlet_expenses WHERE shift_id = $1`,
+    [shiftId],
+  );
+  return Number(openingCash) + Number(cashRows[0].total) - Number(expenseRows[0].total);
 }

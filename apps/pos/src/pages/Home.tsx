@@ -4,6 +4,7 @@ import { formatRupiah } from '@fnb/shared';
 import { api, ApiError } from '../api/client';
 import { useAuthStore } from '../store/auth';
 import PaymentModal from '../components/PaymentModal';
+import ExpenseModal from '../components/ExpenseModal';
 import type { CategoryDto, MenuItemDto, OrderSummaryDto, OrderType, ShiftDto } from '../api/types';
 
 interface CartLine {
@@ -27,6 +28,7 @@ export default function Home() {
   const [shiftLoading, setShiftLoading] = useState(true);
   const [shiftError, setShiftError] = useState<string | null>(null);
   const [showCloseShift, setShowCloseShift] = useState(false);
+  const [showExpense, setShowExpense] = useState(false);
 
   const [openBills, setOpenBills] = useState<OrderSummaryDto[]>([]);
   const [categories, setCategories] = useState<CategoryDto[]>([]);
@@ -162,6 +164,9 @@ export default function Home() {
             <div className="text-sm text-slate-400">{user?.fullName} &middot; Shift #{shift.shift_number}</div>
           </div>
           <div className="flex gap-2">
+            <button onClick={() => setShowExpense(true)} className="rounded-lg bg-slate-800 px-3 py-2 text-xs text-slate-300 hover:bg-slate-700">
+              Catat Pengeluaran
+            </button>
             <button onClick={() => setShowCloseShift(true)} className="rounded-lg bg-slate-800 px-3 py-2 text-xs text-slate-300 hover:bg-slate-700">
               Tutup Shift
             </button>
@@ -297,6 +302,10 @@ export default function Home() {
             resetCart();
           }}
         />
+      )}
+
+      {showExpense && (
+        <ExpenseModal onClose={() => setShowExpense(false)} onSaved={() => setShowExpense(false)} />
       )}
 
       {showCloseShift && (
