@@ -209,18 +209,6 @@ export default function Home() {
           </div>
         )}
 
-        <div className="mb-3 flex gap-2">
-          {(Object.keys(ORDER_TYPE_LABELS) as OrderType[]).map((t) => (
-            <button
-              key={t}
-              onClick={() => setOrderType(t)}
-              className={`rounded-full px-4 py-2 text-sm font-medium ${orderType === t ? 'bg-emerald-500 text-white' : 'bg-slate-800 text-slate-300'}`}
-            >
-              {ORDER_TYPE_LABELS[t]}
-            </button>
-          ))}
-        </div>
-
         <div className="mb-4 flex gap-2 overflow-x-auto pb-1">
           <button
             onClick={() => setActiveCategory('all')}
@@ -255,7 +243,19 @@ export default function Home() {
 
       {/* Cart */}
       <div className="flex w-full flex-col border-t border-slate-800 bg-slate-950 p-4 md:w-96 md:border-l md:border-t-0">
-        <h2 className="mb-3 text-lg font-bold text-white">Order Baru ({ORDER_TYPE_LABELS[orderType]})</h2>
+        <h2 className="mb-3 text-lg font-bold text-white">Order Baru</h2>
+
+        <div className="mb-4 flex gap-2">
+          {(Object.keys(ORDER_TYPE_LABELS) as OrderType[]).map((t) => (
+            <button
+              key={t}
+              onClick={() => setOrderType(t)}
+              className={`flex-1 rounded-full px-3 py-2 text-sm font-medium ${orderType === t ? 'bg-emerald-500 text-white' : 'bg-slate-800 text-slate-300'}`}
+            >
+              {ORDER_TYPE_LABELS[t]}
+            </button>
+          ))}
+        </div>
 
         <label className="mb-1 block text-xs text-slate-500">Label pelanggan (opsional)</label>
         <input
